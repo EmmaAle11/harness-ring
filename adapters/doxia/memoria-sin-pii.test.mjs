@@ -7,7 +7,7 @@ import { join } from 'node:path';
 // hasta hoy NADA lo comprobaba: la regla vivia en prosa y se rompio. El 2026-09-03 `third` encontro
 // un RFC completo en el cuerpo de una entrada, versionado y empujado a tres ramas.
 // El barrido de secretos de la puerta no lo cubre: busca claves de proveedor, no PII de clientes.
-const RAIZ = new URL('../../', import.meta.url).pathname;
+const RAIZ = new URL('../../../', import.meta.url).pathname;
 
 // Un RFC de persona moral son 3 letras + 6 digitos de fecha + 3 de homoclave; el de persona fisica, 4.
 const RFC = /\b[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}\b/g;
@@ -24,21 +24,27 @@ export const barrer = (texto) => {
   return hallazgos;
 };
 
-const ficheros = [];
-(function walk(dir) {
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const r = join(dir, e.name);
-    if (e.isDirectory()) walk(r);
-    else if (e.name.endsWith('.md')) ficheros.push(r);
-  }
-})(join(RAIZ, 'memory'));
+// PEREZOSO: este barrido recorria `memory/` al CARGAR el modulo, asi que el
+// fichero entero moria donde ese directorio no existe. Los 5 casos no fallaban:
+// no se ejecutaban, y la corrida agregada ni los contaba.
+const listarFicheros = () => {
+  const acc = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const r = join(dir, e.name);
+      if (e.isDirectory()) walk(r);
+      else if (e.name.endsWith('.md')) acc.push(r);
+    }
+  })(join(RAIZ, 'memory'));
+  return acc;
+};
 
 test('hay entradas de memoria que barrer', () => {
-  assert.ok(ficheros.length > 100, `solo ${ficheros.length} ficheros: el barrido no esta mirando memory/`);
+  assert.ok(listarFicheros().length > 100, `solo ${listarFicheros().length} listarFicheros(): el barrido no esta mirando memory/`);
 });
 
 test('ninguna entrada de memory/ contiene RFC ni correos de clientes', () => {
-  const malas = ficheros
+  const malas = listarFicheros()
     .map((f) => [f.slice(RAIZ.length), barrer(readFileSync(f, 'utf8'))])
     .filter(([, h]) => h.length);
   assert.deepEqual(malas, [],

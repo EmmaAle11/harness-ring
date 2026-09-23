@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const LIB = resolve(fileURLToPath(new URL('../../scripts/lib/cerrojo-full.sh', import.meta.url)));
+const LIB = resolve(fileURLToPath(new URL('../../../scripts/lib/cerrojo-full.sh', import.meta.url)));
 
 /** Corre un guion bash con la libreria ya cargada y devuelve su stdout. */
 const enBash = (guion) =>

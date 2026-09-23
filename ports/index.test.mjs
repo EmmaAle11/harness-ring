@@ -1,7 +1,7 @@
 // ── La negociacion de puertos, y la regla que mantiene limpio el nucleo ──────
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertRing, crearAnfitrion, puertaNula } from './index.mjs';
@@ -46,8 +46,22 @@ test('EL FALLO DE h-009: la puerta ausente se detecta al ARRANCAR, no en la etap
   assert.match(r.fallos.join(' '), /no disponible|falta scripts\/gate\.sh/);
 });
 
-test('el adaptador REAL de DoxIA cumple el puerto', () => {
+test('el adaptador REAL de DoxIA cumple el puerto — solo donde DoxIA existe', (t) => {
+  // GUARDA DE ENTORNO, no un skip por comodidad. Este caso comprueba el
+  // ADAPTADOR, y un adaptador solo se puede comprobar donde vive su anfitrion.
+  // Un auditor de regresion lo cazo fallando en un repositorio limpio: el test
+  // del PUERTO exigia `scripts/gate.sh`, que es precisamente lo que el puerto
+  // existe para no exigir.
+  //
+  // Se distingue «no habia con que comprobar» de «comprobe y falla», que es la
+  // misma distincion que el motor hace con las rutas de memory/. Sin la guarda,
+  // el rojo diria «el adaptador no cumple» cuando la verdad es «aqui no hay
+  // adaptador que comprobar».
   const raiz = join(AQUI, '..', '..');
+  if (!existsSync(join(raiz, 'scripts', 'gate.sh'))) {
+    t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA');
+    return;
+  }
   const r = assertRing(
     { anfitrion: crearAnfitrion({ raiz }), puertaDeCalidad: puertaDoxia() },
     { workspace: raiz },
