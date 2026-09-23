@@ -11,12 +11,16 @@ propia suite. No es una estimación ni una revisión visual.
 | Entorno | Tests | Pasan | Fallan |
 |---|---:|---:|---:|
 | Dentro de DoxIA | 875 | **875** | 0 |
-| Este repositorio (estructura plana) | 862 | 768 | **94** |
+| Este repositorio (estructura plana) | 862 | 766 | **94** |
 | Motor en árbol ajeno, con nivel `harness/` | 875 | 811 | **64** |
 
 **Los fallos no son un error de copia.** Son la medida exacta de cuánto depende
 todavía el motor de su árbol anfitrión. La asimetría *es* el dato: el mismo
 código pasa entero cuando DoxIA está presente.
+
+> 862 = 766 pass + 94 fail + **2 skipped**. Los saltados son condicionales
+> declarados (`t.skip`), no aprobados: ausencia de qué comprobar y comprobación
+> correcta son estados distintos, y un recuento que los suma miente.
 
 ## Atribución — sin ella, la cifra infla el problema
 
