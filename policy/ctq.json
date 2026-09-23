@@ -1,0 +1,75 @@
+{
+  "$comment": [
+    "CTQ -- Critical To Quality del anillo. Los umbrales son MEDIDOS, no",
+    "aspiracionales: cada uno trae el comando que lo produce y la cifra del dia",
+    "en que se registro. Un umbral inventado convierte el control en decorado.",
+    "",
+    "POR QUE NO HAY 'CINCO NUEVES' AQUI. Esa cifra son cinco minutos de caida al",
+    "año y se mide sobre un servicio en produccion con telemetria",
+    "continua. El anillo lleva 34 vueltas EN TOTAL. Con n=34 el intervalo de",
+    "confianza no permite afirmar ni DOS nueves: una sola vuelta fallida mueve la",
+    "cifra 3 puntos. Lo que se registra es la fraccion CRUDA observada, y se",
+    "llamara disponibilidad cuando haya el orden de magnitud de muestras que esa",
+    "palabra exige. Prometer una fiabilidad que no se ha medido es el defecto que",
+    "este repo ya pago tres veces en un dia (ver memory/failures/)."
+  ],
+  "version": 1,
+  "medidoEl": "2026-09-18",
+  "ctq": [
+    {
+      "id": "anillo:cobertura",
+      "que": "etapas del anillo que una vuelta llega a recorrer",
+      "mecanismo": "ls .harness/runs/<id> | grep -cE '^[0-9]{2}-'",
+      "medido": 12,
+      "de": 16,
+      "piso": 11,
+      "$nota": "12/16 es el maximo observado (H-20260917-fef6f11b). Las etapas 13-16 NUNCA se han ejercitado en esta sesion: su estado viene del historico de agosto y NO se cuenta como exito ni como fallo."
+    },
+    {
+      "id": "harness:suite",
+      "que": "tests del harness en verde",
+      "mecanismo": "node --test harness/",
+      "medido": 788,
+      "piso": 676,
+      "$nota": "El piso lo vigila gate:identidad como HARNESS_TESTS_MIN. Subirlo es una decision explicita, no automatica."
+    },
+    {
+      "id": "fe:suite",
+      "que": "tests del frontend en rojo",
+      "mecanismo": "npx vitest run",
+      "medido": 1,
+      "de": 1877,
+      "techo": 1,
+      "$nota": "Eran 18 el 2026-09-17. Diecisiete no eran defectos de producto: doce por el localStorage que vitest descarta en Node 25+ y cinco por datos sinteticos colapsados por el barrido de PII (memory/failures/el-barrido-de-pii-colapso-dos-identidades-en-una.md). El que queda, Expedientes.grupo.test.tsx, esta VERIFICADO preexistente y sin diagnosticar."
+    },
+    {
+      "id": "trazabilidad:etiquetadas",
+      "que": "vueltas con veredicto estructurado (reason_code)",
+      "mecanismo": "node harness/bin/etiquetar-historico.mjs",
+      "medido": 26,
+      "de": 34,
+      "$nota": "Las 8 sin traza NO se cuentan como fallidas: son vueltas que no se pueden juzgar, y eso tambien es el dato."
+    },
+    {
+      "id": "trazabilidad:sin_clasificar",
+      "que": "vueltas etiquetadas cuya causa no casa con ninguna familia",
+      "mecanismo": "node harness/bin/etiquetar-historico.mjs",
+      "medido": 0,
+      "techo": 0,
+      "$nota": "Un SIN_CLASIFICAR no es un error: es una familia de fallo que todavia no se ha nombrado. Cuando aparezca, se añade a CODIGOS con su caso real, como se hizo con CONTRATO_NO_JSON y FRONTERA_VIOLADA."
+    },
+    {
+      "id": "proveedores:familias",
+      "que": "familias de modelo que ejecutan en una vuelta",
+      "mecanismo": "05-compute.json -> independence.families",
+      "medido": 2,
+      "$nota": "Eran 3 hasta el 2026-09-18, cuando gemini salio por decision del usuario. Con claude (builder) y deepseek (reviewer) no queda tercera familia para adversarial, asi que independence.status pasa a DEGRADED y las 3 pasadas de la etapa 10 vuelven a ser tres muestras del MISMO criterio. Esta declarado en el binding, no oculto."
+    }
+  ],
+  "$noMedido": [
+    "Disponibilidad del anillo: n=34 no la sostiene. No se declara.",
+    "Efecto del preludio de lentes sobre la calidad de los hallazgos: entro junto al aviso de rojo previo y n=2 no separa los dos efectos.",
+    "Etapas 13-16: sin ejercitar en esta sesion.",
+    "Geometria de changeSurface como predictor: MEDIDA Y REFUTADA, ver memory/failures/la-geometria-del-cambio-no-predice-nada.md"
+  ]
+}

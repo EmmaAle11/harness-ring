@@ -1,0 +1,352 @@
+{
+  "$comment": [
+    "CATALOGO — Provider y Model son entidades DISTINTAS.",
+    "",
+    "Antes existia una sola: la cadena `claude:opus`. Eso obligaba a Compute a",
+    "razonar sobre el adaptador para saber si un modelo servia: para preguntar",
+    "'¿soporta tool_calling?' habia que saber que 'claude' es un CLI. Un scheduler",
+    "que necesita conocer el transporte para elegir no es un scheduler, es un if.",
+    "",
+    "Separados, Compute razona sobre CAPACIDADES del modelo y sobre SALUD del",
+    "proveedor, sin saber como se invoca ninguno de los dos. Eso es lo que hace",
+    "que AdapterLayer pueda cambiar sin tocar Compute.",
+    "",
+    "`availability` NO se declara aqui: la dice la maquina (`probe()`), y este",
+    "fichero no puede saberlo. Declararla seria la misma mentira que `status:",
+    "expected-available` ya cometia en router.json."
+  ],
+  "version": 1,
+  "providers": {
+    "claude": {
+      "identity": {
+        "vendor": "Anthropic",
+        "surface": "Claude Code CLI"
+      },
+      "transport": "cli",
+      "authentication": {
+        "kind": "cli-session",
+        "envKey": null
+      },
+      "health": {
+        "probe": "claude --version",
+        "enumeratesModels": false
+      },
+      "capabilities": [
+        "tool_calling",
+        "structured_output",
+        "long_context",
+        "agentic"
+      ]
+    },
+    "deepseek": {
+      "identity": {
+        "vendor": "DeepSeek",
+        "surface": "API OpenAI-compat"
+      },
+      "transport": "http",
+      "authentication": {
+        "kind": "bearer",
+        "envKey": "DEEPSEEK_API_KEY"
+      },
+      "health": {
+        "probe": "GET /models",
+        "enumeratesModels": true
+      },
+      "capabilities": [
+        "structured_output",
+        "long_context"
+      ]
+    },
+    "ollama": {
+      "identity": {
+        "vendor": "local",
+        "surface": "ollama HTTP :11434"
+      },
+      "transport": "http",
+      "authentication": {
+        "kind": "none",
+        "envKey": null
+      },
+      "health": {
+        "probe": "GET /api/tags",
+        "enumeratesModels": true
+      },
+      "capabilities": [
+        "structured_output",
+        "offline"
+      ],
+      "$note": "`offline` es la capacidad que ningun otro proveedor tiene: no depende de red ni de clave. Es la razon de que exista un local, no el ahorro."
+    },
+    "opencode": {
+      "identity": {
+        "vendor": "OpenCode",
+        "surface": "CLI"
+      },
+      "transport": "cli",
+      "authentication": {
+        "kind": "cli-session",
+        "envKey": null
+      },
+      "health": {
+        "probe": "opencode --version",
+        "enumeratesModels": false
+      },
+      "capabilities": [
+        "tool_calling",
+        "agentic"
+      ],
+      "$warning": "MEDIDO 2026-08-14: su backend real es `deepseek-v4-flash-free`. Para ADR-003 NO es un tercer proveedor independiente: si DeepSeek cae, caen los dos. Ver `providerFamily`."
+    },
+    "gemini": {
+      "identity": {
+        "vendor": "Google",
+        "surface": "Generative Language API v1beta"
+      },
+      "transport": "http",
+      "authentication": {
+        "kind": "header",
+        "envKey": "GEMINI_API_KEY",
+        "header": "x-goog-api-key",
+        "$comment": "En CABECERA y no en la query: asi un `HTTP 400 <url>` en un log o un artefacto no transcribe la clave."
+      },
+      "health": {
+        "probe": "GET /models",
+        "enumeratesModels": true,
+        "$comment": "Se filtran los que sirven `generateContent`: la lista trae embeddings y TTS, y contarlos infla el inventario con modelos que esta operacion no puede usar."
+      },
+      "capabilities": [
+        "structured_output",
+        "long_context",
+        "tool_calling"
+      ]
+    }
+  },
+  "$comment_family": [
+    "ADR-003 veta por PROVEEDOR, pero dos proveedores pueden compartir el modelo de",
+    "detras. `opencode` sirve deepseek: un revisor 'opencode' sobre un escritor",
+    "'deepseek' heredaria exactamente el punto ciego que ADR-003 existe para evitar.",
+    "La familia es la unidad real de diversidad."
+  ],
+  "providerFamily": {
+    "claude": "anthropic",
+    "deepseek": "deepseek",
+    "opencode": "deepseek",
+    "ollama": "qwen",
+    "gemini": "google"
+  },
+  "$comment_model_family": [
+    "LA FAMILIA ES DE QUIEN RAZONA, NO DE QUIEN SIRVE. `providerFamily` basta para",
+    "un proveedor que sirve una sola familia; ollama sirve las que tenga",
+    "descargadas, y ahi el mapa por proveedor MIENTE.",
+    "",
+    "Con `ollama -> local`, un revisor `ollama:deepseek-coder-v2` sobre un escritor",
+    "`deepseek:deepseek-v4-pro` pasaba el filtro de diversidad. Es el MISMO",
+    "razonamiento que ya obligo a vetar opencode -- sirve deepseek por debajo -- sin",
+    "aplicar. Un modelo DeepSeek revisando a un modelo DeepSeek no es una segunda",
+    "opinion, por mucho que uno corra en local.",
+    "",
+    "Por eso ollama pasa a familia `qwen` -- que es lo que de verdad sirve casi",
+    "todo su catalogo aqui -- y este mapa corrige los que no lo son. Lo que",
+    "importa no es el nombre: es que `qwen != deepseek != anthropic` sea cierto."
+  ],
+  "modelFamily": {
+    "ollama:deepseek-coder-v2:16b": "deepseek",
+    "ollama:devstral": "mistral"
+  },
+  "$comment_models": [
+    "`cost.tier` es cualitativo a proposito: el precio exacto cambia sin avisar y",
+    "un numero desactualizado decide peor que una categoria honesta.",
+    "`ramGB` solo aplica a modelos locales y es parte del contrato de asignacion:",
+    "un modelo de 19 GB en la clase mas invocada tumbo 2 de 7 corridas."
+  ],
+  "models": [
+    {
+      "provider": "claude",
+      "model_id": "opus",
+      "context_window": 200000,
+      "reasoning": "high",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "cost": {
+        "tier": "premium",
+        "relative": 10
+      }
+    },
+    {
+      "provider": "claude",
+      "model_id": "sonnet",
+      "context_window": 200000,
+      "reasoning": "medium",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "cost": {
+        "tier": "paid",
+        "relative": 3
+      }
+    },
+    {
+      "provider": "claude",
+      "model_id": "haiku",
+      "context_window": 200000,
+      "reasoning": "low",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "cost": {
+        "tier": "cheap",
+        "relative": 1
+      }
+    },
+    {
+      "provider": "deepseek",
+      "model_id": "deepseek-v4-pro",
+      "context_window": 128000,
+      "reasoning": "high",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "cost": {
+        "tier": "paid",
+        "relative": 2
+      }
+    },
+    {
+      "provider": "deepseek",
+      "model_id": "deepseek-flash",
+      "context_window": 128000,
+      "reasoning": "medium",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "cost": {
+        "tier": "cheap",
+        "relative": 1
+      }
+    },
+    {
+      "provider": "ollama",
+      "model_id": "qwen3-coder",
+      "context_window": 262144,
+      "reasoning": "high",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "offline": true,
+      "cost": {
+        "tier": "free",
+        "relative": 0
+      },
+      "ramGB": 18.6,
+      "latency": "slow",
+      "$note": "DESCARGADO Y COMPROBADO (`GET /api/tags`, 18,6 GB). Es la TERCERA familia de razonamiento viva en esta maquina: anthropic escribe, deepseek revisa, qwen refuta. Sin el, las tres pasadas adversariales son tres muestras del mismo modelo -- que es lo que la Fase 11 llama '3 muestras != 3 criterios'. Lento y en CPU: se invoca en la etapa 10 y no en caliente."
+    },
+    {
+      "provider": "ollama",
+      "model_id": "qwen3.8:27b",
+      "context_window": 262144,
+      "reasoning": "high",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "offline": true,
+      "cost": {
+        "tier": "free",
+        "relative": 0
+      },
+      "ramGB": 18,
+      "latency": "slow",
+      "$note": "MEDIDO: 28s para un prompt trivial, 18,3 GB residentes. Corre en CPU: la RX 6600 son 8 GB de VRAM y no cabe."
+    },
+    {
+      "provider": "ollama",
+      "model_id": "deepseek-coder-v2:16b",
+      "context_window": 163840,
+      "reasoning": "medium",
+      "tool_calling": false,
+      "structured_output": true,
+      "long_context": true,
+      "offline": true,
+      "cost": {
+        "tier": "free",
+        "relative": 0
+      },
+      "ramGB": 8.9,
+      "latency": "slow"
+    },
+    {
+      "provider": "ollama",
+      "model_id": "qwen2.5-coder:7b",
+      "context_window": 32768,
+      "reasoning": "low",
+      "tool_calling": false,
+      "structured_output": true,
+      "long_context": false,
+      "offline": true,
+      "cost": {
+        "tier": "free",
+        "relative": 0
+      },
+      "ramGB": 4.7,
+      "latency": "medium"
+    },
+    {
+      "provider": "ollama",
+      "model_id": "qwen2.5-coder:14b",
+      "context_window": 32768,
+      "reasoning": "medium",
+      "tool_calling": false,
+      "structured_output": true,
+      "long_context": false,
+      "offline": true,
+      "cost": {
+        "tier": "free",
+        "relative": 0
+      },
+      "ramGB": 9.0,
+      "latency": "slow"
+    },
+    {
+      "provider": "opencode",
+      "model_id": "default",
+      "context_window": 128000,
+      "reasoning": "medium",
+      "tool_calling": true,
+      "structured_output": false,
+      "long_context": true,
+      "cost": {
+        "tier": "free",
+        "relative": 0
+      },
+      "$note": "structured_output false: escribe para una terminal. El adaptador limpia ANSI, pero no garantiza forma."
+    },
+    {
+      "provider": "gemini",
+      "model_id": "gemini-2.5-pro",
+      "context_window": 1048576,
+      "reasoning": "high",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "cost": {
+        "tier": "paid",
+        "relative": 2
+      },
+      "$comment": "Alta 2026-08-27. `context_window` es el de la API para 2.5-pro; no se hereda del proveedor, se declara por modelo, que es lo que Compute lee."
+    },
+    {
+      "provider": "gemini",
+      "model_id": "gemini-2.5-flash",
+      "context_window": 1048576,
+      "reasoning": "medium",
+      "tool_calling": true,
+      "structured_output": true,
+      "long_context": true,
+      "cost": {
+        "tier": "paid",
+        "relative": 1
+      }
+    }
+  ]
+}

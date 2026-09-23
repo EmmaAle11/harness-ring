@@ -1,0 +1,560 @@
+{
+  "$comment_basehash": [
+    "`baseHash` va en optionalArgs y NO en args, aunque para apply_patch, delete_file",
+    "y move_file sea obligatorio. La obligatoriedad la decide UNA sola autoridad:",
+    "la politica de mutacion (lib/mutation.mjs, EXIGEN_BASE), que es quien puede",
+    "distinguir 'no lo mandaste' de 'lo mandaste y no coincide'.",
+    "",
+    "Declararlo tambien aqui parecia mas explicito y creaba dos reglas para el mismo",
+    "hecho: el registro rechazaba por 'contract' antes de que la politica pudiera",
+    "responder MUTATION_UNVERSIONED, y el modelo recibia un mensaje que no le decia",
+    "que estaba pasando. Es el defecto dominante de este repo, cometido dentro del",
+    "codigo escrito para evitarlo."
+  ],
+  "$comment": [
+    "EL REGISTRO DE HERRAMIENTAS — el catalogo de lo que un modelo puede PEDIR.",
+    "",
+    "Pedir, no ejecutar. El flujo obligatorio es:",
+    "",
+    "  MODEL -> REQUEST -> HARNESS POLICY -> TOOL CONTRACT -> SANDBOX -> RESULT",
+    "",
+    "Una herramienta que no este en esta lista NO EXISTE para el modelo, y pedirla",
+    "es un rechazo registrado, no un error de programa.",
+    "",
+    "LA POLITICA NO SE DECLARA AQUI. Quien autoriza sigue siendo el contrato de la",
+    "capacidad (harness/capabilities/<id>.md), a traves de las funciones que ya",
+    "existen:",
+    "",
+    "  kind=read   -> contencion en el workspace",
+    "  kind=write  -> contencion + checkWriteBoundary (permissions.write / denyPaths)",
+    "  kind=exec   -> contencion + checkAction (permissions.execute / forbidden)",
+    "",
+    "Por eso `action` no es decorativo: es la cadena EXACTA que checkAction compara",
+    "contra `permissions.execute`. Duplicar la politica aqui habria creado dos",
+    "autoridades sobre el mismo permiso, que es el defecto dominante del repo."
+  ],
+  "version": 1,
+  "$comment_loop": [
+    "LOS LIMITES. Un bucle agentico sin tope es el mismo problema que el harness",
+    "existe para resolver: diez rondas manuales sobre esta rama y ninguna salio",
+    "limpia.",
+    "",
+    "`maxTranscriptChars` es el limite de COSTE que esta maquina puede medir de",
+    "verdad. Los CLIs (claude, opencode) no reportan tokens, asi que un tope en",
+    "tokens seria una cifra declarada por el proveedor -- justo lo que la regla de",
+    "metricas prohibe. Los caracteres los cuenta el harness.",
+    "",
+    "CALIBRACION, medida en H-20260816-5422f582. La vuelta murio con el reloj",
+    "agotado a las 20 iteraciones: 19 llamadas a herramientas costaron 37 SEGUNDOS",
+    "en total y los otros 19 MINUTOS fueron el modelo, a ~57 s por iteracion.",
+    "",
+    "La restriccion que ataba no era el numero de vueltas -- `maxIterations` 24 no",
+    "llego a tocarse -- sino la LATENCIA por llamada, y esa la gobierna el tamano",
+    "del prompt: cada iteracion reenvia la transcripcion entera, que con 140000",
+    "caracteres llegaba a ~140 KB en las ultimas vueltas.",
+    "",
+    "Dos numeros, los dos por la misma medida: se baja la transcripcion a 60000",
+    "-para que cada llamada sea mas barata- y se sube el reloj a 45 min, porque una",
+    "tarea de cuatro ficheros necesita del orden de 20 llamadas y hay que dejar",
+    "margen para la correccion final. Bajar solo el reloj habria sido tratar el",
+    "sintoma; bajar solo la transcripcion, apostar a que basta.",
+    "",
+    "SEGUNDA CALIBRACION, medida en H-20260816-d36ae6bc. Con el reloj ya holgado",
+    "-18,2 min de los 45- la restriccion se mudo al numero de iteraciones: 30",
+    "agotadas con 29 llamadas. El log dice por que, y no es presupuesto: el builder",
+    "alcanzo `run_test` en VERDE cuatro veces y siguio tocando despues de cada una.",
+    "",
+    "La causa raiz es que no tenia regla de parada, y eso se arregla en el protocolo",
+    "(agentic.mjs: 'tampoco sigas despues de verde'), no subiendo un numero. Los topes",
+    "suben tambien -a 40 y 55- porque el reloj lo permite y el protocolo de mutacion",
+    "anade llamadas reales, pero subirlos SIN la regla habria comprado cuatro verdes",
+    "mas y el mismo final."
+  ],
+  "loop": {
+    "maxIterations": 40,
+    "maxToolCalls": 55,
+    "maxWallMs": 2700000,
+    "maxCallMs": 420000,
+    "maxTranscriptChars": 60000,
+    "maxToolResultChars": 20000,
+    "maxConsecutiveUnparsable": 3,
+    "byClass": {
+      "$comment": [
+        "POR CLASE, y solo donde esta MEDIDO. Las clases sin entrada usan el tope de",
+        "arriba, que sigue calibrado sobre una extraccion de cuatro ficheros.",
+        "",
+        "`move`: H-20260820-02e22ced completo el trabajo -- 14 mutaciones, 6 renombrados",
+        "en R100, 9 ficheros, typecheck y tests en VERDE-- en la llamada 38 de la",
+        "iteracion 40, y el tope cayo antes de que pudiera declarar `done`. Una mudanza",
+        "son dos mutaciones por fichero mas los importadores, y cada una cuesta ademas",
+        "la llamada que la situa: 14x2 + 3 verificaciones ~ 31 en una corrida perfecta.",
+        "60/80 deja margen para una ronda de REWORK sin firmar un cheque en blanco.",
+        "",
+        "SEGUNDA CALIBRACION -- 60/80 se midio sobre una mudanza de NUEVE ficheros, y el",
+        "criterio que esta clase existe para servir es `move >= 50`. Es el mismo defecto",
+        "que TOPE_SHA_LISTADO en tools.mjs, en el fichero de al lado: un tope calibrado",
+        "sobre el caso pequeno mientras el criterio pide el grande.",
+        "",
+        "MEDIDO en vivo, H-20260823-907b6e42 (h-006, 65 ficheros): 36 llamadas y 21",
+        "movimientos en 17 minutos. 15 de orientacion y UNA por fichero -- la llamada que",
+        "situaba cada uno ya no hace falta, porque `list_files` entrega los shas. Asi que",
+        "15 + 65 + importadores + verificacion ~ 89 en una corrida perfecta, contra un",
+        "tope de 80: la vuelta moria en el ultimo movimiento, con el arbol a medias y",
+        "ningun importador tocado. Y a 28 s por llamada, los 45 min de maxWallMs caian",
+        "antes que el conteo.",
+        "",
+        "120 llamadas dejan las ~89 mas una ronda de REWORK. 90 minutos, lo mismo. NO es",
+        "un cheque en blanco: el siguiente escalon de tamano se vuelve a medir.",
+        "",
+        "TERCERA CALIBRACION, y la anterior fallo por medir la magnitud de al lado: subi",
+        "maxToolCalls a 120 y maxIterations solo a 90. El builder gasta UNA llamada por",
+        "iteracion --90 iteraciones = 90 llamadas, medido-- asi que quien muerde es",
+        "SIEMPRE el menor de los dos, y subir el otro no hace nada.",
+        "",
+        "MEDIDO en H-20260823-f35cdedd: 60 de 65 movimientos en 90 iteraciones, 0 DENY,",
+        "39 minutos, ~26 s por llamada. El reparto:",
+        "",
+        "  60  move_file      el trabajo",
+        "  23  list_files     RE-LISTAR el inventario entre tandas  <- 26 % del presupuesto",
+        "   5  search",
+        "   2  read_file",
+        "",
+        "Asi que 65 movimientos + importadores + verificacion ~ 115 con el desperdicio",
+        "dentro. 140 deja una ronda de REWORK.",
+        "",
+        "LO QUE FALTA, y OJO con la explicacion: esas 23 re-lecturas se atribuyeron a que",
+        "`git ls-files` sigue mostrando los origenes ya movidos --el fantasma-- y el",
+        "listado no encoge.",
+        "",
+        "UNA CORRIDA POSTERIOR LO CONTRADICE. H-20260823-4e052d0a, mismo codigo, misma",
+        "tarea, mismo fantasma: 2 list_files en vez de 23. Asi que el fantasma explica que",
+        "la re-lectura PUEDA pasar, no que pase; lo que cambio fue el comportamiento del",
+        "builder, no el mecanismo. Queda escrito como hipotesis viva, no como causa.",
+        "",
+        "Y en esa corrida el cuello de botella se mudo: los 65 movimientos salieron en ~70",
+        "llamadas con 0 DENY, y las otras 69 se fueron en los IMPORTADORES --24 read_file,",
+        "25 apply_patch (21 ok, 4 fallan), 15 search, 6 run_typecheck-- sin llegar a un",
+        "typecheck verde. Ese no se arregla subiendo un numero."
+      ],
+      "extraction": {
+      "$comment": [
+        "EL TOPE DE extraction SE CALIBRO SOBRE UN ORIGEN PEQUENO, y el criterio que",
+        "esta clase sirve hoy es otro. 40/55 salio de H-001: cuatro ficheros, un",
+        "fichero puro y su llamante. h-008 extrae 8 simbolos de UN fichero de 7.331",
+        "lineas con 58 importadores, y ahi el trabajo no esta en mutar: esta en",
+        "LOCALIZAR.",
+        "",
+        "MEDIDO el 2026-09-15 sobre las seis vueltas de h-008 (3 control + 3 con",
+        "temperatura alta): CUATRO terminaron en `tope de 40 iteraciones agotado`",
+        "-- control-3 con 13 llamadas, trat-2 con 15, trat-3 con 12. El reparto que",
+        "delatan esas cifras es el contrario al de `move`: pocas llamadas y muchas",
+        "iteraciones, porque el builder no puede leer 7.331 lineas de una vez y cada",
+        "simbolo cuesta una pasada de localizacion antes de poder tocarlo.",
+        "",
+        "Por eso `maxIterations` sube y `maxToolCalls` NO al mismo sitio: quien muerde",
+        "es el menor de los dos, y aqui el que muerde es el conteo de iteraciones. La",
+        "leccion de la tercera calibracion de `move` -- subir el que no muerde no hace",
+        "nada -- aplicada al reves.",
+        "",
+        "90/70 deja las ~8 localizaciones mas sus mutaciones mas una ronda de REWORK.",
+        "NO cubre aafa.service.ts (23.571 lineas, 3,2x este origen): ese escalon se",
+        "vuelve a medir cuando se intente, como manda la nota de `move`."
+      ],
+      "maxIterations": 90,
+      "maxToolCalls": 70,
+      "maxWallMs": 4200000
+    },
+    "move": {
+        "maxIterations": 140,
+        "maxToolCalls": 140,
+        "maxWallMs": 5400000
+      }
+    },
+    "$comment_maxToolResultChars": [
+      "8000 -> 20000. MEDIDO sobre las 36 corridas en disco: 30 resultados de",
+      "herramienta se truncaron, y sus tamanos REALES van de 8 582 a 18 205 chars",
+      "(mediana 10 053). O sea que el tope no cortaba el caso raro: cortaba la mitad",
+      "de las lecturas grandes, y de la mayor se tiraron 10 205 chars -- mas de lo que",
+      "dejaba pasar.",
+      "",
+      "20 000 cubre el p100 medido con margen. No es un numero cualquiera: es el",
+      "maximo observado redondeado hacia arriba, y el siguiente escalon se vuelve a",
+      "medir sobre corridas nuevas, no se estima.",
+      "",
+      "Y NO ES el limite que ADR-008 prohibe subir. Aquel es `maxOutputTokens` --la",
+      "SALIDA del modelo-- y sigue en 32768 sin tocar. Este es lo que el harness le",
+      "DA de leer. ADR-008 exige comprobar antes que la salida esta acotada por",
+      "contrato: lo esta --9 entradas de `reduccion`, una por contrato de artefacto--",
+      "y OUTPUT_TRUNCATED aparece en 0 de las 36 corridas. La precondicion del ADR",
+      "esta descargada, con su medida."
+    ],
+    "$comment_maxTranscriptChars": [
+      "ES EL SUELO, no el tope. El techo de transcripcion es una propiedad del",
+      "MODELO --su ventana de contexto-- y no del bucle, exactamente por la misma",
+      "razon por la que `maxOutputTokens` se declara por PROVEEDOR: el techo lo pone",
+      "quien sirve el modelo, no quien lo usa.",
+      "",
+      "UN SOLO NUMERO GLOBAL NO PUEDE SER CORRECTO, y la medida lo demuestra. El",
+      "catalogo declara ventanas de 32 768 a 262 144 tokens. Derivando la capacidad",
+      "de cada modelo, el 60000 de siempre sale asi:",
+      "",
+      "  qwen2.5-coder:7b/:14b   32 768 ctx  ->  61 728   <- el 60000 era ESTE",
+      "  deepseek-v4 / opencode 128 000 ctx  -> 273 696",
+      "  claude opus/sonnet/haiku 200 000 ctx -> 489 696",
+      "  qwen3-coder            262 144 ctx  -> 749 856",
+      "",
+      "El 60000 global estaba bien calibrado para el modelo mas PEQUENO y era 8x",
+      "corto para todos los demas: `el-limite-medido-sobre-la-poblacion-equivocada`,",
+      "otra vez y en el sitio que decide cuanto puede leer una vuelta.",
+      "",
+      "Ver `topeDeTranscripcion` en agentic.mjs. Este valor se usa cuando el modelo",
+      "no esta en el catalogo o no declara ventana -- que NO es lo mismo que",
+      "'no importa': es el unico numero que se sabe seguro."
+    ],
+    "$comment_transcript": [
+      "LAS TRES CIFRAS DE LA DERIVACION, aqui y no en el codigo, para que subir un",
+      "tope no sea tocar codigo.",
+      "",
+      "`charsPorToken: 3` NO SE PUDO MEDIR y por eso se declara: ningun artefacto en",
+      "disco trae `usage.promptTokens` -- se comprobo sobre las 36 corridas-- asi que",
+      "no hay poblacion sobre la que calcularlo. 3 es conservador a proposito: codigo",
+      "e ingles reales rondan 3,5-4, asi que INFRA-estima la capacidad. Equivocarse",
+      "por abajo deja transcripcion sin usar; por arriba revienta la ventana. Cuando",
+      "una corrida publique tokens de prompt, esto se mide y se sustituye.",
+      "",
+      "`margenPromptTokens: 4000` es lo que ocupan el manifiesto de la capacidad, el",
+      "protocolo de herramientas y el contrato -- lo que va SIEMPRE y no es",
+      "transcripcion.",
+      "",
+      "`turnosUtiles: 10` es el techo por arriba, y es lo que impide que esto se",
+      "convierta en 'meter el repositorio en el contexto', que es justo lo que",
+      "ADR-008 prohibe. `podar` recorta por el MEDIO conservando cabeza y cola, asi",
+      "que el bucle no necesita recordar sus 140 llamadas: necesita que no se le",
+      "borre lo que acaba de observar. Diez resultados a tamano completo es holgado y",
+      "acotado. 20 000 x 10 = 200 000 chars, y ninguna ventana del catalogo lo",
+      "impide salvo la de 32 768, que ya cae por capacidad.",
+      "",
+      "`techoFijo: null` es la salida de emergencia y manda sobre las tres de arriba.",
+      "Existe porque `maxTranscriptChars` hacia DOS trabajos --el suelo del",
+      "desconocido y el techo del operador-- y al derivar el segundo, bajarlo a",
+      "proposito dejaba de tener efecto. `null` = no se impone ninguno y decide la",
+      "derivacion. Un numero = eso y nada mas, venga de donde venga la ventana."
+    ],
+    "transcript": {
+      "charsPorToken": 3,
+      "margenPromptTokens": 4000,
+      "turnosUtiles": 10,
+      "techoFijo": null
+    }
+  },
+  "output": {
+    "$comment": [
+      "EL PRESUPUESTO DE SALIDA. `loop` declara SEIS limites de entrada y declaraba CERO",
+      "de salida, y esa asimetria es la que mata vueltas: mas entrada produce mas",
+      "hallazgos, y mas hallazgos revientan un techo de salida que nadie habia escrito.",
+      "",
+      "MEDIDO en H-20260816-bebf4372 (7,5 KB de entrada), H-20260818-040baf77 (13 KB) y",
+      "la 6a vuelta del 2026-08-18: el revisor agoto sus 32768 tokens de salida y la",
+      "etapa 9 murio con OUTPUT_TRUNCATED. Se diagnostico mal dos veces como",
+      "CONTEXT_OVERFLOW, que es el fallo CONTRARIO.",
+      "",
+      "`maxOutputTokens` NO SUBE UNA CUARTA VEZ. 8192 -> 16384 -> 32768 ya esta escrito",
+      "en el adaptador de DeepSeek. El siguiente escalon no es un numero: es un contrato",
+      "mas corto, que es lo que declara `reduccion`."
+    ],
+    "$comment_maxOutputTokens": [
+      "Por PROVEEDOR, no por clase de tarea: el techo lo pone quien sirve el modelo, no",
+      "quien lo usa. Declararlo por clase habria sido una cifra nuestra sobre un hecho",
+      "ajeno.",
+      "",
+      "`null` significa NO LO ACEPTA, y no es lo mismo que 'no lo sabemos': los CLIs",
+      "(claude, opencode) no admiten un techo de salida en la invocacion, asi que",
+      "declarar un numero ahi seria una politica que nadie puede hacer cumplir."
+    ],
+    "maxOutputTokens": {
+      "deepseek": 32768,
+      "ollama": 8192,
+      "claude": null,
+      "opencode": null
+    },
+    "$comment_reduccion": [
+      "QUE se pide de menos cuando la respuesta se corta. UN NUMERO, NO UN RUEGO: decia",
+      "«responde MUCHO mas corto», que es pedir moderacion a quien acaba de gastar 32768",
+      "tokens, y los dos intentos se cortaron igual.",
+      "",
+      "POR CONTRATO DE ARTEFACTO, porque «maximo 3 hallazgos» significa algo para un",
+      "FindingSet y NADA para un DecisionRecord. Vivio cableado en stages-model.mjs -- ahi",
+      "lo puso el arreglo de F-5 -- y ahi era una EXCEPCION de una etapa; aqui es una",
+      "autoridad que vale para las nueve.",
+      "",
+      "Un contrato sin entrada no es un error: invoke.mjs cae al aviso generico, que es",
+      "lo unico honesto cuando no se sabe que se le puede quitar."
+    ],
+    "reduccion": {
+      "FindingSet": "Responde con MAXIMO 3 hallazgos, los mas graves primero. `evidence` de MEDIA linea y sin reproducir ni una linea del codigo citado. Nada de texto fuera del JSON.",
+      "SecurityReport": "Responde con MAXIMO 3 hallazgos, los de severidad mas alta. `evidence` de MEDIA linea y sin reproducir el codigo citado. Los escaneos (`sca`, `sbom`, `sast`) van completos: son hechos, no prosa.",
+      "DecisionRecord": "Evalua UNA sola opcion -- la que recomiendas -- con `rationale` de dos frases. Sin alternativas descartadas y sin repetir el contexto.",
+      "WorkPackage": "MAXIMO 4 ficheros, y un `acceptance` de UNA linea por fichero. Sin justificar la eleccion.",
+      "ArchitectureBaseline": "Solo los modulos que la tarea toca. Sin inventario del resto del repositorio.",
+      "FactSet": "MAXIMO 8 hechos, y solo los que la decision siguiente necesita. Sin citas largas.",
+      "EvidencePackage": "Solo los campos obligatorios del contrato. Sin notas ni resumenes.",
+      "LearningRecord": "UN solo aprendizaje, el mas util, con `evidence` de una linea.",
+      "VoteSet": "Responde SOLO con `{\"votes\":[{\"id\":\"1\",\"vote\":\"CONFIRMED\"|\"REFUTED\",\"reason\":\"media linea\"}]}`. El `id` es el NUMERO que lleva cada hallazgo. UN voto por hallazgo recibido. NO repitas file, symbol, claim, severity ni evidence: el harness ya los tiene. Nada de texto fuera del JSON."
+    },
+    "reasoningEffort": {
+      "$comment": [
+        "EL ESFUERZO DE RAZONAMIENTO, por proveedor. `low`, no `none`: el revisor",
+        "TIENE que razonar -- es una revision adversarial -- y con `none` la API",
+        "contesta en 6 tokens sin mirar nada. Lo que se acota es que piense SIN TECHO,",
+        "que es lo que medimos: 32768 de 32768 en razonamiento y cero en la respuesta.",
+        "",
+        "null = el proveedor no acepta el campo. Los CLIs (claude, opencode) gobiernan",
+        "su propio razonamiento y ollama no expone el parametro."
+      ],
+      "deepseek": "low",
+      "ollama": null,
+      "claude": null,
+      "opencode": null
+    },
+    "reasoningEffortTruncado": "none",
+    "$comment_truncado": [
+      "A DONDE SE BAJA TRAS UN TRUNCADO, y solo tras el. Si `low` no basto, repetirlo",
+      "no basta tampoco: el segundo intento apaga el pensamiento y se queda con la",
+      "respuesta, que es lo unico que la etapa necesita. Vale mas un FindingSet",
+      "pensado a la ligera que ningun FindingSet -- la etapa 9 no bloquea, bloquea la",
+      "convergencia, y un hallazgo flojo lo mata la refutacion de la etapa 10."
+    ]
+  },
+  "fanout": {
+    "$comment": [
+      "C-7 · FAN-OUT. 200 ficheros no caben en una transcripcion de 60.000 chars; 200",
+      "transcripciones de un fichero, si. Lo que se reparte es la TRANSCRIPCION -- el",
+      "recurso escaso-- no el reloj ni el workspace: los shards son SECUENCIALES sobre",
+      "un unico workspace, porque `claim.json` impone un anillo a la vez y eso no se",
+      "toca (memory/failures/dos-anillos-a-la-vez.md).",
+      "",
+      "`minFiles` es el umbral por debajo del cual NO se reparte, y devuelve un shard",
+      "con todo: cada trozo cuesta una invocacion, y pagarla para cuatro ficheros que",
+      "caben de sobra es gasto puro. H-001 son 4 ficheros y sigue corriendo de una",
+      "pieza, exactamente como hasta hoy.",
+      "",
+      "La REDUCCION no la hace un modelo: la hace la puerta. Un solo `git diff`, un",
+      "solo analisis de superficie sobre la UNION y un solo gate."
+    ],
+    "enabled": true,
+    "minFiles": 8,
+    "maxFilesPerShard": 6
+  },
+  "tools": [
+    {
+      "id": "read_file",
+      "kind": "read",
+      "args": [
+        "path"
+      ],
+      "optionalArgs": [
+        "offset",
+        "limit"
+      ],
+      "why": "Leer 1:1 antes de editar. Editar sobre un grep es como entran los defectos que la ronda siguiente encuentra."
+    },
+    {
+      "id": "read_symbol",
+      "kind": "read",
+      "args": [
+        "symbol"
+      ],
+      "optionalArgs": [
+        "path"
+      ],
+      "why": "Leer UN simbolo por su nombre, con su rango exacto. `aafa.service.ts` son 20.523 lineas y exporta DOS simbolos -- uno es la clase entera; sus 223 metodos tienen mediana de 24 lineas. Es la unica forma de tocar los 19 ficheros que no caben en una lectura."
+    },
+    {
+      "id": "search",
+      "kind": "read",
+      "args": [
+        "pattern"
+      ],
+      "optionalArgs": [
+        "path"
+      ],
+      "why": "Re-anclar por SIMBOLO, nunca por linea: las anclas de linea de los veredictos viejos se han movido mucho."
+    },
+    {
+      "id": "list_files",
+      "kind": "read",
+      "optionalArgs": [
+        "path"
+      ],
+      "why": "Inventario del workspace, incluidos los no rastreados: un directorio nuevo entero es invisible para `git diff`."
+    },
+    {
+      "id": "inspect_file",
+      "kind": "read",
+      "args": [
+        "path"
+      ],
+      "why": "Existe / bytes / lineas / sha256, sin gastar contexto en el contenido. Es tambien la base del baseHash de la Fase 8."
+    },
+    {
+      "id": "git_diff",
+      "kind": "read",
+      "action": "git diff",
+      "why": "Lo que lleva cambiado en el workspace. La unica fuente honesta del ChangeSet."
+    },
+    {
+      "id": "git_status",
+      "kind": "read",
+      "action": "git status",
+      "why": "Que ficheros toco, incluidos los creados."
+    },
+    {
+      "id": "apply_patch",
+      "kind": "write",
+      "args": [
+        "path",
+        "patch"
+      ],
+      "optionalArgs": [
+        "baseHash"
+      ],
+      "why": "Cambio quirurgico sin transportar el fichero entero. `baseHash` es obligatorio: un parche contra una version desconocida es una apuesta. Diff unificado con cabecera `--- a/<ruta>` / `+++ b/<ruta>` y AL MENOS 3 lineas de contexto (las que no cambian, con su espacio inicial) alrededor de cada hunk: git situa el hunk por ellas, y uno de solo `-` y `+` no se puede localizar. Las cabeceras tienen que nombrar EL MISMO fichero que `path`: una llamada declara un `path` y un `baseHash`, asi que versiona UN fichero, y `git apply` escribe donde diga la cabecera. Un cambio en varios ficheros son varias llamadas, cada una con su `baseHash`."
+    },
+    {
+      "id": "create_file",
+      "kind": "write",
+      "args": [
+        "path",
+        "content"
+      ],
+      "optionalArgs": [
+        "baseHash"
+      ],
+      "why": "Crear. SIN baseHash afirma que el fichero no existe y se rechaza si existe; CON baseHash es una reescritura declarada."
+    },
+    {
+      "id": "delete_file",
+      "kind": "write",
+      "args": [
+        "path"
+      ],
+      "optionalArgs": [
+        "baseHash"
+      ],
+      "why": "Borrar lo que se ha visto. La guarda de sandbox.mjs impide salir del workspace; `baseHash` impide borrar otra cosa de la que se creia."
+    },
+    {
+      "id": "move_file",
+      "kind": "write",
+      "args": [
+        "source",
+        "destination"
+      ],
+      "optionalArgs": [
+        "baseHash"
+      ],
+      "why": "Mover. Las DOS rutas pasan por la frontera, el origen declara su hash y el destino debe estar libre: mover encima seria sobrescribir sin decirlo."
+    },
+    {
+      "id": "run_test",
+      "kind": "exec",
+      "action": "npx vitest",
+      "cmd": [
+        "npx",
+        "vitest",
+        "run"
+      ],
+      "acceptsPaths": true,
+      "timeoutMs": 600000,
+      "why": "Que el builder EJECUTE los tests que escribe. Sin esto, 'los tests pasan' es una afirmacion suya, no un hecho.",
+      "$ceiling": "Solo vitest, y solo desde la raiz. `run_test_backend` cubre jest en `backend/`, y son dos tools y no un parametro A PROPOSITO: la regla del repo es que los dos runners NUNCA corren a la vez, y dos comandos separados no se pueden invocar juntos por accidente."
+    },
+    {
+      "id": "run_test_backend",
+      "kind": "exec",
+      "action": "npx jest (desde backend/)",
+      "cmd": [
+        "npx",
+        "jest"
+      ],
+      "cwd": "backend",
+      "acceptsPaths": true,
+      "timeoutMs": 600000,
+      "why": "Que el builder ejecute los tests que escribe CUANDO toca `backend/src`. Sin esto, jest era inalcanzable desde el anillo y una tarea de backend no podia cerrarse.",
+      "$medido": "H-20260819-e62bf69e, la primera vuelta que toco `backend/src`: el builder llamo a `run_test` 40 veces --vitest desde la raiz, que no ve un spec de jest--, siempre en rojo, agoto el tope de iteraciones y la vuelta murio con ROLLBACK en la etapa 7. El techo estaba escrito como trabajo aplazado en el `$ceiling` de `run_test`; la primera tarea que lo piso fue esta.",
+      "$rutas": "`acceptsPaths` sin traducir la ruta: jest casa su patron contra la ruta ABSOLUTA del test, que contiene `backend/src/...`, asi que la ruta relativa al workspace funciona tal cual. Convertirla habria sido una segunda representacion del mismo camino."
+    },
+    {
+      "id": "run_typecheck",
+      "kind": "exec",
+      "action": "npm run",
+      "cmd": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "timeoutMs": 300000,
+      "why": "El error de tipos se ve aqui y no tres etapas despues."
+    },
+    {
+      "id": "run_lint",
+      "kind": "exec",
+      "action": "npm run",
+      "cmd": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "timeoutMs": 300000,
+      "why": "Lint cubre los dos arboles desde la raiz."
+    },
+    {
+      "id": "run_build",
+      "kind": "exec",
+      "action": "npm run",
+      "cmd": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "timeoutMs": 600000,
+      "why": "Lo ultimo que se rompe y lo primero que se nota."
+    },
+    {
+      "id": "run_gate",
+      "kind": "exec",
+      "action": "bash scripts/gate.sh",
+      "cmd": [
+        "bash",
+        "scripts/gate.sh"
+      ],
+      "timeoutMs": 900000,
+      "why": "La AUTORIDAD del definition_of_done, ejecutable por el builder. Sin esto, una tarea que toca `scripts/gate.sh` -subir el piso de tests es parte de anadir un test- no se puede verificar desde dentro.",
+      "$ceiling": "MEDIDO: `--fast` no basta. Los pisos FE/BE viven dentro de `if [ \"$MODE\" = \"full\" ]`, asi que un builder que los cambia y solo corre `--fast` NUNCA ejecuta la rama que modifico. El revisor lo exigio dos veces en H-20260817-009c7621 -con razon- y la vuelta murio ahi. Por eso `mode` es elegible: `full` cuando el cambio toca algo que solo esa rama comprueba.",
+      "choice": {
+        "arg": "mode",
+        "values": {
+          "fast": "--fast",
+          "full": "--full"
+        },
+        "default": "fast",
+        "why": "El modo es una ELECCION entre valores en lista blanca, no un argumento libre: el argv sale del registro y dejar que el modelo lo componga seria darle la shell."
+      }
+    }
+  ],
+  "$comment_read": [
+    "C-2 · LA UNIDAD DE LECTURA ES EL SIMBOLO, no el fichero ni la ventana.",
+    "",
+    "MEDIDO sobre `git ls-files` de la rama: 997 ficheros de codigo, 10,22 MB. El",
+    "1,9 % de los ficheros contiene el 36,3 % de los bytes. La primera llamada que",
+    "hace cualquier modelo -- `read_file` sin `limit`-- devolvia el 0,70 % del",
+    "god-service y le quemaba 8.000 de sus 60.000 chars de transcripcion, SIN decirle",
+    "que era una ventana.",
+    "",
+    "`read_file` ahora declara `totalLines`, `from`, `to` y `truncated`; `read_symbol`",
+    "resuelve el rango contra el indice del harness (C-1), que si lee el 100 %.",
+    "",
+    "F-4 decia «que la tarea diga donde mirar». Eso pone la carga en quien redacta la",
+    "tarea y caduca en cuanto alguien la redacta mal: la carga va en la herramienta."
+  ]
+}

@@ -1,0 +1,317 @@
+{
+  "$comment": [
+    "Puerto de SALIDA del harness: clase de tarea -> proveedor y modelo.",
+    "Un agente NUNCA nombra un proveedor; declara su `model_class` y el router resuelve.",
+    "",
+    "POLITICA (2026-08-18): PRIMARIOS son los de pago -- claude y deepseek, grandes",
+    "o pequenos. Los LOCALES son respaldo y solo los PEQUENOS: los de ~18 GB",
+    "salen del `prefer`, no del catalogo, para que volver a darlos de alta sea una",
+    "linea.",
+    "",
+    "CONSECUENCIA DECLARADA. Ningun local pequeno cumple `long_context`, que es",
+    "requisito de `review`. Asi que con esta politica NO hay tercera familia de",
+    "razonamiento y la refutacion adversarial recae en el revisor: Compute lo",
+    "resuelve como `independence: DEGRADED` y lo escribe en el artefacto. Degradar",
+    "esta permitido; degradar en silencio no.",
+    "",
+    "La EXCEPCION es `review`, y no es una preferencia: ADR-003 exige que el revisor",
+    "use un PROVEEDOR distinto del escritor. Con `edit` en Claude, `review` no puede",
+    "ser Claude. DeepSeek es quien resuelve esa tension sin bajar a un modelo pequeno.",
+    "",
+    "`status` lo confirma `doxia doctor` contra la maquina, no este fichero."
+  ],
+  "providers": {
+    "ollama": {
+      "kind": "local",
+      "endpoint": "http://localhost:11434",
+      "probe": "GET /api/tags",
+      "status": "expected-available",
+      "note": "Sin coste y sin salir de la maquina. La base local tiene PII real: por eso lo local es preferible para leer.",
+      "memoria": {
+        "$comment": [
+          "El tamano es parte del contrato de asignacion, no un detalle de despliegue:",
+          "un modelo de 19 GB en la clase mas invocada dejo 3,6 GB libres y tumbo 2 de 7",
+          "corridas (memory/failures/el-modelo-grande-en-la-clase-barata.md).",
+          "La maquina tiene 30 GB de RAM y 8 GB de VRAM (RX 6600): lo que no cabe en la",
+          "GPU corre en CPU, mas lento pero viable.",
+          "DOS GRANDES NO CABEN A LA VEZ: 18 + 8,9 = 27 de 30 GB es fallo garantizado."
+        ],
+        "qwen3.8:27b": "18 GB",
+        "deepseek-coder-v2:16b": "8,9 GB",
+        "qwen2.5-coder:14b": "9,0 GB",
+        "qwen2.5-coder:7b": "4,7 GB"
+      }
+    },
+    "claude": {
+      "kind": "cli",
+      "command": "claude",
+      "probe": "claude --version",
+      "status": "expected-available"
+    },
+    "opencode": {
+      "kind": "cli",
+      "command": "opencode",
+      "probe": "opencode --version",
+      "status": "expected-available"
+    },
+    "deepseek": {
+      "kind": "api",
+      "envKey": "DEEPSEEK_API_KEY",
+      "endpoint": "https://api.deepseek.com",
+      "status": "expected-available",
+      "note": "Clave en .env (gitignored). Es el segundo proveedor de pago que hace cumplible ADR-003 sin recurrir a un modelo local."
+    },
+    "gemini": {
+      "kind": "api",
+      "envKey": "GEMINI_API_KEY",
+      "status": "expected-available",
+      "note": "Tercera familia (google). Adaptador de alta el 2026-08-27.",
+      "$comment": [
+        "LA TERCERA FAMILIA, y es lo unico que hace posible la refutacion adversarial.",
+        "ADR-003 pide que quien refuta no comparta familia con quien escribio los hallazgos,",
+        "y el revisor los escribe: con builder=anthropic y reviewer=deepseek no quedaba nadie.",
+        "El router decia que `ollama:qwen2.5-coder:14b` cubria ese hueco, MEDIDO el 21-ago.",
+        "Hoy ese modelo NO esta servido -- `el proveedor responde pero no sirve este modelo` --",
+        "asi que la capacidad estaba declarada y no re-comprobada durante seis dias.",
+        "",
+        "LA CLAVE ES LA DEL BACKEND (extraccion documental), autorizada por el usuario el",
+        "2026-08-27. Consecuencia declarada: el gasto de los agentes cae en la misma cuenta",
+        "que el de los documentos de clientes, y `admin/gemini-billing.service.ts` deja de",
+        "medir solo lo que cree medir. El adaptador PREFIERE una clave propia en `.env` si",
+        "existe, asi que separarlas manana es una linea y no un cambio de codigo."
+      ],
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta",
+      "probe": "GET /models"
+    },
+    "codex": {
+      "kind": "api",
+      "envKey": "OPENAI_API_KEY",
+      "status": "unavailable"
+    }
+  },
+  "$comment_classes": [
+    "El criterio NO es el tamano de la tarea: es el COSTE DEL ERROR.",
+    "Un error al contar ficheros se ve al instante. Un error en una spec se propaga",
+    "a todo lo que cuelga de ella y se descubre tres rondas despues."
+  ],
+  "classes": {
+    "read": {
+      "why": "Error barato y detectable de inmediato: inventario, conteo, lectura 1:1. Claude por defecto; el local solo si Claude no responde.",
+      "prefer": [
+        {
+          "provider": "claude",
+          "model": "haiku"
+        },
+        {
+          "provider": "deepseek",
+          "model": "deepseek-flash"
+        },
+        {
+          "provider": "deepseek",
+          "model": "deepseek-v4-pro"
+        },
+        {
+          "provider": "ollama",
+          "model": "qwen2.5-coder:7b",
+          "why": "El unico local que se conserva en primera linea: 4,7 GB. Leer es la clase de error mas barato y la que mas se invoca."
+        }
+      ],
+      "requires": [],
+      "maxCostTier": "paid",
+      "risk": "low"
+    },
+    "plan": {
+      "why": "Orquestacion: decide el orden, no el contenido.",
+      "prefer": [
+        {
+          "provider": "claude",
+          "model": "sonnet"
+        },
+        {
+          "provider": "deepseek",
+          "model": "deepseek-v4-pro"
+        },
+        {
+          "provider": "deepseek",
+          "model": "deepseek-flash"
+        }
+      ],
+      "requires": [
+        "structured_output"
+      ],
+      "maxCostTier": "paid",
+      "risk": "medium"
+    },
+    "design": {
+      "why": "Error caro: una spec mala se propaga a todo lo que cuelga. Claude primero por capacidad; el resto son RESPALDO DE DISPONIBILIDAD, no alternativas equivalentes.",
+      "$comment_fallback": [
+        "MEDIDO 2026-08-18: Claude se cayo y las cuatro vueltas del dia murieron en",
+        "las etapas 3 y 4. `read`, `plan` y `review` sobrevivieron porque tenian",
+        "candidato fuera de claude; `design` y `edit` no tenian NINGUNO -- sus dos",
+        "entradas eran claude:opus y claude:sonnet, que es el mismo proveedor dos",
+        "veces. Una lista de respaldo con un solo proveedor no es una lista de",
+        "respaldo: es un punto unico de fallo escrito en plural.",
+        "",
+        "El orden sigue diciendo lo que importa: se prefiere la capacidad y se cae a",
+        "la disponibilidad, nunca al reves."
+      ],
+      "prefer": [
+        {
+          "provider": "claude",
+          "model": "opus"
+        },
+        {
+          "provider": "claude",
+          "model": "sonnet"
+        },
+        {
+          "provider": "deepseek",
+          "model": "deepseek-v4-pro"
+        },
+        {
+          "provider": "deepseek",
+          "model": "deepseek-flash"
+        }
+      ],
+      "$comment_sin_local": [
+        "SIN camino offline, y es una consecuencia declarada de la politica de",
+        "locales pequenos: `design` exige `long_context` y ningun local pequeno lo",
+        "tiene. `ollama:qwen3-coder` (18,6 GB) lo cumplia y sale del `prefer`; sigue",
+        "en el catalogo, asi que volver a darlo de alta es esta linea otra vez.",
+        "Disenar sin red ni clave hoy NO se puede, y eso se dice en vez de fingir",
+        "un respaldo que no existe."
+      ],
+      "requires": [
+        "structured_output",
+        "long_context"
+      ],
+      "maxCostTier": "premium",
+      "risk": "high"
+    },
+    "edit": {
+      "why": "El error entra al arbol. Unico escritor, maxima capacidad.",
+      "prefer": [
+        {
+          "provider": "claude",
+          "model": "opus"
+        },
+        {
+          "provider": "deepseek",
+          "model": "deepseek-v4-pro",
+          "why": "UNICO respaldo del escritor, y de pago a proposito. Los locales siguen PROHIBIDOS aqui: el builder es lo unico que entra al arbol. AVISO, y es el precio de la politica de locales pequenos: si claude cae y el escritor pasa a deepseek, `review` se queda SIN familia distinta -- los locales pequenos no cumplen `long_context` y el 16b es familia deepseek-- y Compute DETIENE el anillo en la etapa 5. Es ADR-003 negandose a degradar, no un fallo: preferimos parar a revisar con la familia que escribio. Volver a tener camino offline completo es una linea: `ollama:qwen3-coder` de vuelta en el `prefer` de `review`."
+        }
+      ],
+      "requires": [
+        "tool_calling",
+        "structured_output",
+        "long_context"
+      ],
+      "maxCostTier": "premium",
+      "risk": "critical",
+      "forbidden": [
+        "ollama:*",
+        "opencode:*"
+      ]
+    },
+    "review": {
+      "why": "Adversarial. NO puede ser Claude cuando `edit` lo es: la diversidad de PROVEEDOR es la regla (ADR-003). Los modelos `deepseek-chat`/`deepseek-reasoner` DEJARON DE EXISTIR en la API, y el 2026-09-15 volvio a pasar: `deepseek-v4-flash` tampoco existe ya. HOY LA API SIRVE DOS -- `deepseek-v4-pro` y `deepseek-flash`-- medido con GET /models. Es la SEGUNDA renombrada, asi que el patron no es el accidente: un catalogo escrito a mano diverge del proveedor sin avisar y nadie lo mide hasta que muerde. Ver memory/failures/el-modelo-preferido-dejo-de-existir-otra-vez.md. `pro` va primero: en `review` el coste del error es alto y es donde se paga la profundidad.",
+      "prefer": [
+        {
+          "provider": "deepseek",
+          "model": "deepseek-v4-pro"
+        },
+        {
+          "provider": "deepseek",
+          "model": "deepseek-flash"
+        },
+        {
+          "provider": "ollama",
+          "model": "deepseek-coder-v2:16b",
+          "why": "Camino offline barato (8,9 GB) para `review`. NO aporta independencia: `catalog.modelFamily` lo marca familia deepseek -- un modelo DeepSeek revisando a un modelo DeepSeek no es una segunda opinion por correr en local. DECIA ademas que era el UNICO local con `long_context`, y eso dejo de ser cierto: `qwen3.8:27b` tambien lo tiene, y ese si cambia de familia."
+        },
+        {
+          "provider": "ollama",
+          "model": "qwen2.5-coder:14b",
+          "why": "LA TERCERA FAMILIA. ADR-003 exige que quien refuta no comparta familia con quien escribio; con builder en `anthropic` y reviewer en `deepseek`, esta es la unica tercera que hay. VA LA ULTIMA DE LAS UTILES a proposito: es CPU. MEDIDO el 21-ago con un prompt de refutacion real de 595 chars: 32,7 s y JSON valido (105 tokens). NO es el 27b: ese es un modelo de PENSAMIENTO y en CPU su fase de razonamiento se come el techo entero -- 3 pasadas x 2 intentos murieron en H-20260821-54e6667b sin emitir un solo token visible. Un modelo mas capaz que no llega a tiempo refuta menos que uno mediano que contesta."
+        },
+        {
+          "provider": "opencode",
+          "model": "default"
+        }
+      ],
+      "requires": [
+        "structured_output"
+      ],
+      "maxCostTier": "paid",
+      "risk": "high",
+      "forbidden": [
+        "claude:*"
+      ],
+      "$comment_tercera_familia": [
+        "POR QUE EL 27b SALE DE `prefer` Y EL 14b ENTRA.",
+        "",
+        "`qwen3.8:27b` (17,7 GB) esta instalado y VIVO -- `doctor` lo ve--, y aun asi las tres",
+        "pasadas de refutacion de H-20260821-54e6667b murieron. No por caida: por PENSAMIENTO.",
+        "Sonda del 21-ago, prompt trivial con num_predict=8: carga en 18,6 s, responde en 23,4 s",
+        "y la respuesta visible es la CADENA VACIA -- los ocho tokens se fueron en razonar.",
+        "",
+        "Un refutador que piensa mas de lo que le queda de techo no aporta independencia: aporta",
+        "un FAIL en la etapa 10 y una vuelta perdida en 10/16. La independencia la da la FAMILIA,",
+        "no el tamano del modelo, y `qwen2.5-coder:14b` es la misma familia `qwen` por",
+        "`catalog.modelFamily`."
+      ],
+      "$comment_sin_long_context": [
+        "`long_context` SALE DE `requires`, y sale MEDIDO, no por comodidad.",
+        "",
+        "Nunca se comparo con la entrada real. Medido el 21-ago: la proyeccion que llega",
+        "al revisor son 16,5 KB --lo bajo la lista blanca de C-4, de 18,3-- y el",
+        "FindingSet que llega al refutador son 1.672 chars (H-20260821-54e6667b,",
+        "09-validation.json). Un modelo de 32K tiene 8x de holgura sobre el mayor de los",
+        "dos.",
+        "",
+        "LO QUE COSTABA. Los unicos modelos `qwen` con long_context son de 18 GB, y el",
+        "unico instalado de esos --`qwen3.8:27b`-- PIENSA: en CPU su fase de",
+        "razonamiento se come el techo entero. Exigir una capacidad que el trabajo no",
+        "usa dejaba la tercera familia sin ningun candidato servible, y ADR-003 sin",
+        "forma de cumplirse en vivo. La exigencia no protegia nada: solo elegia peor.",
+        "",
+        "El orden de `prefer` NO cambia: deepseek-v4-pro sigue primero. Esto solo",
+        "decide quien queda cuando los de arriba no estan, que es exactamente el caso",
+        "de la refutacion independiente."
+      ],
+      "$comment_gemini": "2026-09-18, decision del usuario: gemini SALE del prefer. CONSECUENCIA MEDIDA y aceptada: con solo claude (builder) y deepseek (reviewer), la etapa 10 no encuentra una TERCERA familia y `adversarial` cae al modelo del reviewer. `independence.status` pasa de INDEPENDENT a DEGRADED y lo declara en el binding -- no se rompe, se dice. Las 3 pasadas vuelven a ser tres muestras del MISMO criterio: miden su varianza, no lo corroboran. En H-20260917-fef6f11b gemini confirmo 3 hallazgos P3/P5 con 0 desacuerdos; esa refutacion independiente se pierde."
+    }
+  },
+  "rules": {
+    "reviewerMustDifferFromBuilder": {
+      "enforced": true,
+      "why": [
+        "Un revisor del mismo modelo hereda el punto ciego del que escribio.",
+        "Es lo unico que un solo proveedor NO puede dar, y por tanto el mayor valor",
+        "de todo el router.",
+        "Si no hay dos proveedores vivos, el trigger SE DETIENE y lo reporta.",
+        "No degrada a 'revisado por el mismo modelo' en silencio."
+      ]
+    },
+    "localFirstForReads": {
+      "enforced": false,
+      "why": "RETIRADA el 2026-08-14 por decision del usuario: Claude por defecto. La contencion de PII sigue vigente por otra via -- ninguna capacidad envia contenido de la base local, y las que leen datos siguen sin salir de la maquina."
+    },
+    "noTraining": {
+      "enforced": true,
+      "why": "Prohibicion #1 del plan. El DataSet de carta-modelos/dataset/ es material de referencia para F4b, no corpus de entrenamiento."
+    }
+  },
+  "$comment_policy": [
+    "`requires` son capacidades del MODELO que la clase exige. Un modelo sin ellas se",
+    "descarta con motivo, no se intenta y falla despues (negociacion, no esperanza).",
+    "",
+    "`forbidden` es la unica lista que gana a `prefer`. No es una preferencia mas:",
+    "`review` prohibe claude porque `edit` es claude y ADR-003 no admite excepcion, y",
+    "`edit` prohibe los locales porque el escritor es lo unico que entra al arbol.",
+    "Un fallback SOLO puede caer dentro de `prefer` menos `forbidden`. Nunca a",
+    "'cualquier modelo disponible'.",
+    "",
+    "`maxCostTier` acota el gasto por clase: free < cheap < paid < premium."
+  ]
+}

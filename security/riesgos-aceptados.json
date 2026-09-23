@@ -1,0 +1,77 @@
+{
+  "_lee_esto_primero": [
+    "Vulnerabilidades ALTAS que el gate deja de contar como hallazgo abierto porque el riesgo",
+    "alcanzable esta cerrado por otra via. NO es una lista de silencio: cada entrada nombra su",
+    "aviso concreto, su mitigacion y el test que la vigila, y CADUCA.",
+    "",
+    "Reglas que hacen que esto no sea un agujero:",
+    "  1. La aceptacion es por PAQUETE + AVISO. Otra vulnerabilidad del MISMO paquete sigue",
+    "     disparando: lo aceptado es un riesgo concreto, no un proveedor.",
+    "  2. Caduca. Pasada `revisar_antes_de`, el gate vuelve a reportarla. Una aceptacion eterna",
+    "     es indistinguible de un descuido.",
+    "  3. Exige `mitigacion` y `test`: si el riesgo esta cerrado por otra via, esa via tiene que",
+    "     tener nombre y guardian. Sin test, no se acepta.",
+    "  4. Cualquier ALTA que no este aqui sigue saliendo WARN, como siempre.",
+    "  5. EL GUARDIAN TIENE QUE CUBRIR EL ALCANCE DEL RIESGO, no el del sitio donde se descubrio.",
+    "     `alcance_del_guardian` lo dice con todas las letras y es obligatorio. Medido el 2026-09-01",
+    "     por `third` en otra rama: la mitigacion de pdfjs estaba en UN llamante, con un test que",
+    "     leia ESE fichero y cuya asercion decia literalmente «hay UN solo getDocument». Se desplego",
+    "     un SEGUNDO llamante sin mitigar y el test siguio verde, mientras la puerta imprimia",
+    "     «aceptadas y mitigadas». Una aceptacion hereda la ceguera de su vigilante."
+  ],
+  "backend": [
+    {
+      "paquete": "pdfjs-dist",
+      "cve": "CVE-2024-4367",
+      "aviso": "PDF.js vulnerable to arbitrary JavaScript execution upon opening a malicious PDF",
+      "version_afectada": "3.11.174 (rango vulnerable: <= 4.1.392)",
+      "mitigacion": "getDocument({ isEvalSupported: false }) en src/common/qr-verification/document-authenticity.ts — es la mitigacion oficial de Mozilla: el fallo solo se explota con eval habilitado.",
+      "test": "src/common/qr-verification/pdfjs-mitigacion-global.spec.ts",
+      "alcance_del_guardian": [
+        "EL ARBOL, no un fichero -- desde la fusion de `feat/staging-aafa` el 2026-09-07.",
+        "`pdfjs-mitigacion-global.spec.ts` recorre backend/src, QUITA LOS COMENTARIOS antes de asertar",
+        "(sin eso el mutante sobrevive: el comentario que explica la mitigacion contiene la cadena",
+        "`isEvalSupported: false`), exige el flag en CADA `getDocument({` y NOMBRA el fichero que falle.",
+        "Lleva control positivo `>= 2` --hoy son dos llamantes-- y declara su propio techo: la regex solo",
+        "ve las opciones LITERALES, asi que `const opts = {...}; getDocument(opts)` pasaria invisible.",
+        "",
+        "COMO LLEGO AQUI, porque la forma importa: hasta hoy esta rama tenia UN llamante y un guardian de",
+        "UN FICHERO, y esta misma entrada decia «PENDIENTE: adoptar ese guardian global cuando llegue a",
+        "esta rama». El 2026-09-07 `main` levanto un P3 contra `second` diciendo que su guardian no cubria",
+        "el arbol: era FALSO -- el global existia en su rama desde el 02-09. `main` habia medido ESTA",
+        "declaracion y hablado de AQUEL arbol. La fusion trae el guardian bueno y cierra el pendiente."
+      ],
+      "invariante": {
+        "por_que": [
+          "UNA ACEPTACION ES UNA AFIRMACION SOBRE UN ARBOL, Y HAY MAS DE UN ARBOL. Medido el 2026-09-02:",
+          "`feat/harness-doxia` y `origin/main` tenian 1 llamante y `feat/staging-aafa` 2 --el segundo,",
+          "PdfjsLectorAdapter.ts, en produccion desde el 1-sep--. La premisa «un guardian de un fichero",
+          "basta» era cierta aqui y falsa alla, con el mismo texto. Formulacion de `third`.",
+          "",
+          "1 -> 2 el 2026-09-07 al fundir: este arbol ES ahora el de produccion y tiene los dos llamantes.",
+          "La cifra no se ajusta para que el test pase; se ajusta porque la poblacion cambio y se midio.",
+          "Si aparece un tercero, este invariante lo nombra y la aceptacion cae con el."
+        ],
+        "arbol": "backend/src",
+        "patron": "getDocument(",
+        "excluye": ".spec.",
+        "esperado": 2
+      },
+      "por_que_no_se_cierra_por_version": [
+        "Medido el 2026-08-23. La actualizacion FUNCIONA (4.10.38 verificada contra un PDF real:",
+        "mismo resultado que 3.11.174, 4 paginas / 2217 caracteres) y deja npm audit en 0 high.",
+        "Pero pdfjs >= 4.2.67 solo publica ESM, y este backend compila a CommonJS:",
+        "  - hay que cargar con import() dinamico, que bajo jest exige --experimental-vm-modules;",
+        "  - con esa bandera se rompen 2 suites y el tiempo del backend pasa de 33 s a 69 s;",
+        "  - y hay un SEGUNDO consumidor, carta-equivalencia.spec.ts, con el mismo require.",
+        "Cerrarla por version no es cambiar una dependencia: es migrar el runner de tests a ESM.",
+        "Ademas el codigo carga pdfjs dentro de un catch que degrada EN SILENCIO, asi que una",
+        "migracion a medias apagaria la verificacion QR sin que nada fallara."
+      ],
+      "aceptado_por": "usuario",
+      "aceptado_el": "2026-08-23",
+      "revisar_antes_de": "2026-09-30",
+      "test_anterior": "src/common/qr-verification/document-authenticity.mitigacion.spec.ts — el del primer incidente; se conserva en el arbol como documentacion, pero YA NO es el guardian: leia un fichero."
+    }
+  ]
+}

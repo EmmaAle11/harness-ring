@@ -1,0 +1,58 @@
+{
+  "$comment": [
+    "LA TAXONOMIA DEL PROYECTO, QUE EL MOTOR NO PUEDE ADIVINAR.",
+    "",
+    "`surface.mjs` llevaba esto incrustado en la logica: SISTEMAS, ALIAS_DE_SISTEMA",
+    "y el regex `^(?:src/app|backend/src)/`. Las tres cosas son ciertas para DoxIA y",
+    "falsas para cualquier otro repo. Un harness que aspira a ser el cuerpo donde",
+    "cualquier sistema se automatice no puede traer los organos de uno solo.",
+    "",
+    "QUE PASABA SI NO: `maxDomains` --el guard que impide que una vuelta toque dos",
+    "sistemas a la vez-- dejaba de funcionar en cuanto el proyecto llamaba a sus",
+    "carpetas de otra forma. Y fallaba EN SILENCIO: todo caia a `plataforma`, que",
+    "cuenta 0 dominios, asi que el presupuesto aprobaba cualquier cosa.",
+    "",
+    "PARA ADAPTARLO A OTRO PROYECTO se edita este fichero, no el codigo."
+  ],
+
+  "sistemas": ["aafa", "sipca", "sisdir", "sicath", "sgci", "admin"],
+
+  "$sistemas": [
+    "La unidad organizativa del repo, repetida 1:1 en las tres capas:",
+    "`backend/src/<sistema>/` <-> `src/app/<sistema>/` <-> esquema de Postgres.",
+    "No es una taxonomia inventada por el harness: es la que ya gobierna el repo."
+  ],
+
+  "alias": { "archivero": "aafa" },
+
+  "$alias": [
+    "LOS DIRECTORIOS QUE NO SIGUIERON LA CONVENCION, y no son transversales.",
+    "",
+    "`src/app/archivero/` es la capa FE de AAFA: el Archivero Fiscal no es codigo",
+    "compartido como `src/lib`, es un sistema que se llamo de otra forma. Sin esta",
+    "tabla caia a `plataforma` y entonces `archivero` + `admin` contaban UN dominio",
+    "en vez de dos: el guard que impide tocar dos sistemas a la vez NO LOS VEIA.",
+    "",
+    "MEDIDO: las vueltas 11a y 12a informaron `dominios 0` tocando el Archivero.",
+    "Muerde en EM-14, EM-16c y EM-17 de CAM-001, que cruzan archivero y admin.",
+    "",
+    "Es una tabla de EXCEPCIONES, no un renombrado: mover el directorio a",
+    "`src/app/aafa/archivero/` seria lo correcto y es una migracion de clase `move`."
+  ],
+
+  "basePaths": ["src/app", "backend/src"],
+
+  "$basePaths": [
+    "Los prefijos bajo los que vive un sistema. Un monorepo con `apps/` y",
+    "`services/`, o con `packages/*/src`, pone los suyos aqui y el motor funciona",
+    "sin tocar una linea. El primer segmento DESPUES de un basePath es el dominio."
+  ],
+
+  "$plataforma": [
+    "`plataforma` NO es un sistema: es la ausencia de uno, y el motor la usa como",
+    "valor de caida. Contarla como dominio propio bloqueaba la unica forma de",
+    "cambio que este repo declara buena --el fichero puro extraido y su llamante--",
+    "porque `src/lib` + `src/app/admin` daban 2 dominios. Lo que `maxDomains`",
+    "protege es que no se toquen dos SISTEMAS, no que no se toque codigo comun."
+  ]
+}

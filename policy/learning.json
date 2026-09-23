@@ -1,0 +1,107 @@
+{
+  "$comment": [
+    "POLITICA DE PROMOCION. Quien decide que un aprendizaje entra en memory/.",
+    "",
+    "Learning NO escribe en memory/. Produce un LearningCandidate y esta politica",
+    "lo resuelve en PROMOTE, REJECT o REVIEW. La separacion no es burocracia: un",
+    "anillo que puede reescribir su propia memoria sin filtro puede tambien",
+    "envenenarla, y la vuelta siguiente arranca leyendo memory/ -- un aprendizaje",
+    "falso promovido se convierte en premisa de todo lo que venga despues.",
+    "",
+    "El criterio es el COSTE DE EQUIVOCARSE, el mismo del router. Un FAILURE mal",
+    "guardado estorba; un ADR mal guardado redirige la arquitectura."
+  ],
+  "version": 1,
+  "$comment_confidence": [
+    "La confianza NO la declara el modelo: se DERIVA de cuantas corridas distintas",
+    "mostraron lo mismo. Un modelo que puntua su propio hallazgo se puntua alto,",
+    "que es exactamente el problema que ADR-004 resuelve en Convergence.",
+    "",
+    "1 corrida = 0.5 (pudo ser casualidad) · 2 = 0.75 · 3 o mas = 0.9",
+    "Nada llega a 1.0: repetirse no es ser cierto."
+  ],
+  "confidenceByRuns": {
+    "1": 0.5,
+    "2": 0.75,
+    "3": 0.9
+  },
+  "maxConfidence": 0.9,
+  "$comment_types": [
+    "`autoPromote` decide si el anillo puede cerrarlo solo. Las dos clases que",
+    "NUNCA se auto-promueven son ARCHITECTURE_DECISION y VULNERABILITY:",
+    "un ADR lo aprueba una persona (ya se le quito la escritura al architect en",
+    "capability-contract), y una vulnerabilidad mal clasificada se publica en un",
+    "repo que otros leen.",
+    "",
+    "`minConfidence` alto significa 'que se haya visto repetirse'. Un FAILURE",
+    "visto una sola vez puede ser un accidente del entorno."
+  ],
+  "types": {
+    "FAILURE": {
+      "dir": "memory/failures",
+      "autoPromote": true,
+      "minConfidence": 0.75,
+      "why": "Un defecto medido dos veces ya no es casualidad, y olvidarlo cuesta mas que guardarlo de mas."
+    },
+    "VALIDATION": {
+      "dir": "memory/validations",
+      "autoPromote": true,
+      "minConfidence": 0.75,
+      "why": "Una comprobacion que se vio funcionar es un hecho, no una interpretacion."
+    },
+    "CODING_PATTERN": {
+      "dir": "memory/patterns",
+      "autoPromote": true,
+      "minConfidence": 0.9,
+      "why": "Un patron generaliza, y generalizar de una sola observacion es como nacen las reglas falsas."
+    },
+    "PROJECT_FACT": {
+      "dir": "memory/architecture",
+      "autoPromote": false,
+      "minConfidence": 0.9,
+      "why": "Toca el plano del sistema: se revisa."
+    },
+    "ARCHITECTURE_DECISION": {
+      "dir": "memory/decisions",
+      "autoPromote": false,
+      "minConfidence": 0.9,
+      "why": "PROHIBIDO auto-promover. Un ADR redirige todo lo que cuelga de el y lo aprueba una persona."
+    },
+    "VULNERABILITY": {
+      "dir": "memory/vulnerabilities",
+      "autoPromote": false,
+      "minConfidence": 0.75,
+      "why": "PROHIBIDO auto-promover. Una vulnerabilidad mal clasificada se publica en un repo que otros leen."
+    },
+    "MIGRATION": {
+      "dir": "memory/migrations",
+      "autoPromote": false,
+      "minConfidence": 0.9,
+      "why": "Describe un cambio de rumbo: se revisa."
+    }
+  },
+  "$comment_excluded": [
+    "Las tres clases que NUNCA entran en el repo, decidido en memory/README.md.",
+    "Se rechazan aqui explicitamente para que el rechazo quede REGISTRADO en vez",
+    "de que el candidato desaparezca sin dejar rastro."
+  ],
+  "excluded": [
+    "AGENT_BEHAVIOR",
+    "USER_PREFERENCE",
+    "EPHEMERAL_SESSION_CONTEXT"
+  ],
+  "rules": {
+    "contradictionAlwaysReviews": {
+      "enforced": true,
+      "why": "Un candidato que CONTRADICE una entrada vigente no se promueve nunca solo. O la entrada vieja estaba mal, o el candidato lo esta, y esa pregunta no la contesta un umbral."
+    },
+    "learningNeverWritesMemoryDirectly": {
+      "enforced": true,
+      "why": "Learning produce candidatos; la promocion es un paso aparte con su propia decision. Si Learning escribiera, no habria filtro que auditar."
+    },
+    "provenanceRequired": {
+      "enforced": true,
+      "why": "Una entrada sin origen no se puede revisar ni retirar: no se sabe de que corrida salio, con que evidencia ni quien la promovio. memory/ deja de ser documentacion y pasa a ser memoria basada en evidencia."
+    }
+  }
+}

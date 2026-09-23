@@ -1,0 +1,86 @@
+{
+  "$comment": [
+    "LA POLITICA DE SEGURIDAD — la severidad NO la decide el scanner.",
+    "",
+    "Un scanner dice 'high' segun su propio criterio, que no conoce este sistema.",
+    "Aqui se traduce a la escala del repo (P0-P5) y se decide que bloquea. Sin este",
+    "fichero, 'severity: high' significaria cosas distintas segun quien lo dijera y",
+    "el gate seria una copia del criterio de un tercero.",
+    "",
+    "TAMPOCO la decide un modelo. La etapa 8 ejecuta scanners y aplica ESTA tabla;",
+    "lo que el modelo aporta es lectura, no veredicto (ADR-004 aplicado a Security).",
+    "",
+    "REGLA: `scanner output -> PASS` no existe. Todo hallazgo pasa por aqui."
+  ],
+  "version": 1,
+
+  "$comment_severidad": [
+    "De la escala del scanner a la del repo. `unknown` cae en P3 a proposito: lo",
+    "que no se sabe clasificar no se archiva como leve."
+  ],
+  "severity": {
+    "critical": "P0",
+    "high": "P1",
+    "moderate": "P3",
+    "medium": "P3",
+    "low": "P4",
+    "info": "P5",
+    "warning": "P3",
+    "error": "P1",
+    "unknown": "P3"
+  },
+
+  "$comment_gates": [
+    "BLOCK detiene la vuelta. WARN se registra y deja pasar. ALLOW no llega a la",
+    "evidencia siquiera.",
+    "",
+    "El umbral va por FUENTE porque el coste del error no es el mismo: un patron",
+    "que el harness acaba de escribir en el codigo (sast) es responsabilidad de",
+    "esta vuelta y se corrige aqui; una CVE heredada en una dependencia transitiva",
+    "(sca) no se arregla desde el builder y bloquear con ella seria detener el",
+    "anillo por algo que no puede resolver.",
+    "",
+    "Un secreto bloquea SIEMPRE y sin umbral: no hay severidad baja para una",
+    "credencial en el arbol."
+  ],
+  "gates": {
+    "sast": { "block": "P2", "why": "codigo que ESTA vuelta escribio o toco: se corrige en esta vuelta" },
+    "secrets": { "block": "P5", "why": "cualquier severidad bloquea; una credencial no tiene grados" },
+    "sca": { "block": "P1", "why": "high y critical detienen. Lo heredado NO se perdona bajando el umbral -- se perdona con una excepcion fechada y con dueno, que es lo unico que puede caducar. Un umbral flojo no caduca nunca." },
+    "container": { "block": "P0", "why": "no aplica todavia: no se despliega en contenedor desde el harness" }
+  },
+
+  "$comment_excepciones": [
+    "Una excepcion NO es un silencio: lleva motivo, fecha de caducidad y a quien",
+    "corresponde. Caducada, vuelve a bloquear -- que es la unica forma de que una",
+    "deuda aceptada no se convierta en una deuda olvidada.",
+    "",
+    "`scope` acota: una excepcion global es una politica desactivada con otro",
+    "nombre."
+  ],
+  "exceptions": [
+    {
+      "id": "SCA-HEREDADAS-2026-08",
+      "scope": "sca",
+      "match": "vulnerabilidades de dependencias presentes ANTES de que el harness existiera",
+      "severityAtMost": "P1",
+      "reason": "10 high en FE y 21 high + 2 critical en BE, todas transitivas y previas al harness. El builder no puede resolverlas desde task.files y bloquear con ellas detendria el anillo por deuda que no crea. Se cuentan en cada vuelta y el numero solo debe bajar.",
+      "expires": "2026-11-30",
+      "owner": "usuario"
+    }
+  ],
+
+  "$comment_owasp": [
+    "NO se declara 'OWASP compliant' por tener herramientas. Se mapean los",
+    "controles que las reglas de verdad cubren, y el resto se declara MISSING.",
+    "Un mapeo honesto de tres controles vale mas que una lista de diez sin",
+    "evidencia detras."
+  ],
+  "owasp": {
+    "A03:2021-Injection": { "covered": ["sast.xss-innerhtml", "sast.eval", "sast.shell-injection"], "status": "PARTIAL" },
+    "A05:2021-Security-Misconfiguration": { "covered": ["sast.tabnabbing"], "status": "PARTIAL" },
+    "A06:2021-Vulnerable-Components": { "covered": ["sca"], "status": "PARTIAL" },
+    "A07:2021-Auth-Failures": { "covered": [], "status": "MISSING" },
+    "A01:2021-Broken-Access-Control": { "covered": [], "status": "MISSING", "why": "es el riesgo dominante de este repo (VULN-001, fuga cross-tenant) y NINGUNA regla lo cubre. Declararlo cubierto seria la mentira mas cara posible." }
+  }
+}

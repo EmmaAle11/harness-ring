@@ -1,0 +1,44 @@
+{
+  "$comment": [
+    "SIN DEPENDENCIAS, y eso no es una aspiracion: es cierto hoy. El motor son",
+    "160 ficheros de JavaScript ESM que solo usan `node:` builtins, y el runner",
+    "es `node --test`. Anadir una dependencia aqui es una decision de",
+    "arquitectura, no un `npm i`.",
+    "",
+    "`private: true` A PROPOSITO. Publicar en npm declararia una portabilidad",
+    "que todavia no existe: 6 raices externas (scripts, memory, .kiro, src,",
+    "backend, .claude) siguen con uso EJECUTABLE dentro del motor, y 10 de los",
+    "13 puertos siguen resueltos en linea. Se quita cuando una vuelta cierre en",
+    "verde sobre un repositorio tercero, no antes.",
+    "",
+    "`exports` ya declara la frontera que se quiere: `./ports` es el contrato",
+    "publico y `./adapters/doxia` es una implementacion de ejemplo que un",
+    "proyecto nuevo reemplaza entera."
+  ],
+  "name": "@harness/ring",
+  "version": "0.1.0",
+  "description": "Motor de automatizacion agentica de 16 etapas: orquesta modelos para producir cambios de codigo verificados. JavaScript puro, cero dependencias.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "exports": {
+    ".": "./bin/doxia.mjs",
+    "./ports": "./ports/index.mjs",
+    "./adapters/doxia": "./adapters/doxia/quality-gate.mjs"
+  },
+  "scripts": {
+    "test": "node --test .",
+    "doctor": "node bin/doxia.mjs doctor"
+  },
+  "keywords": [
+    "agentic",
+    "llm",
+    "orchestration",
+    "hexagonal-architecture",
+    "verification",
+    "code-generation"
+  ]
+}

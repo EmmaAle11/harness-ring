@@ -1,0 +1,8 @@
+{
+  "$por-que": "El techo es deuda MEDIDA, no perdon: es el numero de deficits sin declarar del dia en que entro la etapa. Sube nunca, baja siempre. Cada linea de `declaradas` saca una etapa del deficit diciendo POR QUE no aplica a esa rama, con FECHA: una declaracion de tres meses se ve en la lista, una de hoy no molesta.",
+  "techo": {
+    "feat/audit-doxia": 6,
+    "feat/staging-aafa": 3
+  },
+  "declaradas": {}
+}

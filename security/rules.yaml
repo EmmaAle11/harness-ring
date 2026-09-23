@@ -1,0 +1,97 @@
+# Reglas SAST — semgrep, LOCALES y sin red.
+#
+# `--config auto` descarga reglas de un registro remoto: eso hace que el
+# resultado dependa de que haya red y de lo que alguien publique hoy, y una
+# puerta cuyo criterio cambia sin que nadie lo commitee no es una puerta.
+# Estas viven en el repo, se versionan y se revisan como codigo.
+#
+# CRITERIO: pocas reglas que conozcan ESTE codigo, no un catalogo generico. El
+# ruido es lo que hace que un SAST se acabe ignorando, y un SAST ignorado es
+# peor que ninguno porque figura en el informe.
+#
+# Cada regla nombra el patron SEGURO que ya existe en el repo, para que el
+# hallazgo diga que hacer y no solo que esta mal.
+rules:
+  - id: xss-innerhtml-sin-sanitizar
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      dangerouslySetInnerHTML sin pasar por dangerousHtml(). El repo YA tiene el
+      sanitizador en src/shared/lib/sanitize-html.ts (DOMPurify, creado en la
+      Fase 2.B tras encontrar 3 inyecciones sin sanitizar). Usalo:
+      dangerouslySetInnerHTML={dangerousHtml(html)}.
+    metadata:
+      owasp: "A03:2021-Injection"
+      seguro: "dangerousHtml() de src/shared/lib/sanitize-html.ts"
+    patterns:
+      - pattern: <$EL dangerouslySetInnerHTML={$X} />
+      - pattern-not: <$EL dangerouslySetInnerHTML={dangerousHtml(...)} />
+      - pattern-not: '<$EL dangerouslySetInnerHTML={{__html: dangerousHtml(...)}} />'
+
+  - id: eval-o-function-dinamico
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      eval() o new Function() con entrada dinamica: ejecuta como codigo lo que
+      llegue. No hay uso legitimo de esto en el FE de DoxIA.
+    metadata:
+      owasp: "A03:2021-Injection"
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+
+  - id: shell-injection-por-interpolacion
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      exec/execSync con una plantilla interpolada construye el comando como
+      texto: cualquier cosa en la variable entra a la shell. Usa execFile con
+      argv, que es lo que hace todo el harness (sandbox.mjs, tools.mjs).
+    metadata:
+      owasp: "A03:2021-Injection"
+      seguro: "execFile(cmd, [args]) — el argv no lo compone el modelo"
+    pattern-either:
+      - pattern: exec(`...${...}...`, ...)
+      - pattern: execSync(`...${...}...`, ...)
+
+  - id: tabnabbing-target-blank-sin-rel
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: >-
+      target="_blank" sin rel="noopener": la pestana abierta puede reescribir la
+      de origen via window.opener. Anade rel="noopener noreferrer".
+    metadata:
+      owasp: "A05:2021-Security-Misconfiguration"
+    patterns:
+      - pattern: <$EL ... target="_blank" ... />
+      - pattern-not: <$EL ... target="_blank" ... rel="..." ... />
+
+# NO hay regla de credenciales aqui, y es deliberado.
+#
+# La hubo, y disparo 23 veces sobre codigo legitimo en su primera corrida real:
+# `{ token: 'campoAgRazonSocial' }` -- un placeholder de plantilla -- y
+# `const SECRET = 'test-secret-32-bytes-...'` -- una fixture. Una regla que grita
+# con eso se acaba ignorando, y un SAST ignorado es peor que ninguno porque
+# figura en el informe.
+#
+# Pero el motivo de fondo es otro: la deteccion de secretos YA TIENE AUTORIDAD en
+# este repo -- `sinSecretos()` en harness/lib/trace.mjs, el mismo criterio en
+# .husky/pre-commit y el control `secrets` del gate. Anadir aqui una cuarta
+# version, mas debil y con otro criterio, es el defecto dominante del repositorio
+# cometido dentro del codigo escrito para evitarlo (una-autoridad-por-hecho.md).
+#
+# Si manana hay que ampliar la deteccion de credenciales, se amplia ALLI.
+
+  - id: almacenamiento-de-token-en-localstorage
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: >-
+      Un token en localStorage es legible por cualquier XSS. En DoxIA la sesion
+      la gobierna keycloak-js (src/auth/), que no lo necesita.
+    metadata:
+      owasp: "A07:2021-Auth-Failures"
+    patterns:
+      - pattern: localStorage.setItem($K, ...)
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)["'].*(token|secret|jwt|credential|password).*["']

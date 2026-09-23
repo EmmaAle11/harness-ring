@@ -1,0 +1,588 @@
+{
+  "$comment": [
+    "Los contratos del ciclo. Forma minima verificable, no un JSON Schema completo:",
+    "lo que se comprueba es que los campos EXISTAN y que las etapas encajen.",
+    "Un esquema exhaustivo aqui seria precision falsa -- las formas se estabilizan",
+    "con el uso, y este ciclo lleva una vuelta."
+  ],
+  "version": 1,
+  "$comment_model": [
+    "El anillo completo, 16 etapas. Empieza y termina en Knowledge.",
+    "",
+    "DOS MITADES. Primero las etapas que PRODUCEN: deciden (Knowledge->Plan),",
+    "asignan (Compute->Sandbox), trabajan (Execution) y JUZGAN ese trabajo",
+    "(Security->Convergence). Despues las que REGISTRAN: CapabilityLayer,",
+    "AdapterLayer y Observability.",
+    "",
+    "SECURITY VA EN LA 8, delante de Validation, y por dos razones que apuntan al",
+    "mismo sitio:",
+    "",
+    "  1. Es DETERMINISTA y barata -- semgrep, npm audit, un barrido de secretos --",
+    "     y va delante de CUATRO invocaciones de modelo (1 de Validation + 3 de",
+    "     Adversarial). Un bloqueo que se puede decidir sin un LLM se decide sin un",
+    "     LLM, y ademas antes de gastarlos.",
+    "",
+    "  2. Detras de Convergence NO PODIA BLOQUEAR NUNCA. Medido en",
+    "     H-20260817-ccd41639: el revisor adversarial caza la XSS sembrada en la",
+    "     etapa 8, Convergence bloquea en la 10 y Security -entonces en la 11- no",
+    "     llegaba a correr. Y no era casualidad: TODA regla capaz de bloquear (XSS,",
+    "     eval, shell injection) describe algo que un revisor competente encuentra.",
+    "     El escaner iba siempre segundo sobre codigo ya corregido.",
+    "",
+    "REGLA: ninguna etapa puede resumir lo que todavia no ha ocurrido. Se descubrio",
+    "ejecutando -- Observability estaba en la posicion 9 y su traza reportaba 10 de",
+    "16 etapas, porque las seis siguientes aun no existian.",
+    "",
+    "Corolario que el anillo no resuelve desde dentro: Evidence y Learning tampoco",
+    "son visibles para Observability. El paquete completo lo sella el orquestador al",
+    "cerrar: una etapa DENTRO del anillo no puede describir el cierre del anillo."
+  ],
+  "model": [
+    "Knowledge",
+    "Evidence",
+    "Decision",
+    "Plan",
+    "Compute",
+    "Sandbox",
+    "Execution",
+    "Security",
+    "Validation",
+    "Adversarial",
+    "Convergence",
+    "CapabilityLayer",
+    "AdapterLayer",
+    "Observability",
+    "Evidence2",
+    "Learning",
+    "Knowledge"
+  ],
+  "contracts": {
+    "RepoRef": {
+      "why": "El objeto a analizar, anclado. Sin commit no hay reproducibilidad.",
+      "required": [
+        "repo",
+        "commit"
+      ],
+      "optional": [
+        "path",
+        "branch"
+      ]
+    },
+    "PlanRef": {
+      "why": "Un plan de la boveda, pineado (ADR-005). El texto se cachea en la evidencia.",
+      "required": [
+        "repo",
+        "path",
+        "commit",
+        "sha256"
+      ],
+      "optional": [
+        "text"
+      ]
+    },
+    "ArchitectureBaseline": {
+      "why": "Que EXISTE, con evidencia. No que deberia existir.",
+      "required": [
+        "scope",
+        "facts",
+        "unknowns"
+      ],
+      "optional": [
+        "graph",
+        "hotspots"
+      ]
+    },
+    "FactSet": {
+      "why": "Afirmaciones verificables extraidas del baseline.",
+      "required": [
+        "facts"
+      ],
+      "factShape": [
+        "claim",
+        "evidence",
+        "confidence"
+      ],
+      "confidence": [
+        "CONFIRMED",
+        "PARTIAL",
+        "UNKNOWN",
+        "CONFLICTED"
+      ]
+    },
+    "DecisionRecord": {
+      "why": "Un ADR: contexto, decision, alternativas descartadas y consecuencias.",
+      "required": [
+        "id",
+        "title",
+        "context",
+        "decision",
+        "consequences"
+      ],
+      "optional": [
+        "alternatives",
+        "supersedes"
+      ]
+    },
+    "WorkPackage": {
+      "why": "Trabajo acotado con criterio de aceptacion propio.",
+      "required": [
+        "id",
+        "goal",
+        "acceptance"
+      ],
+      "optional": [
+        "files",
+        "dependsOn",
+        "changeSurface"
+      ],
+      "$note": "`changeSurface` (Fase 11) es la superficie PLANIFICADA: ficheros, modulos y dominios que el plan pretende tocar, comprobados contra el presupuesto ANTES de Execution. Las lineas van `null` aqui -- no se pueden conocer sin escribirlas, y pedirle una estimacion al modelo seria dejarle declarar su propio limite."
+    },
+    "ChangeSet": {
+      "why": "Lo que cambio, no lo que se dijo que cambiaria.",
+      "required": [
+        "files",
+        "diff"
+      ],
+      "optional": [
+        "tests",
+        "capability",
+        "contents",
+        "content",
+        "summary",
+        "iterations",
+        "toolCalls",
+        "mutations",
+        "usage",
+        "changeSurface",
+        "status"
+      ],
+      "$note": "`files` y `diff` los produce GIT sobre el workspace, no el modelo. `toolCalls` es la bitacora del bucle agentico (Fase 7). `mutations` es el Mutation Protocol (Fase 8): op, baseHash declarado, hash antes y hash despues, medidos por el harness. `changeSurface` es la superficie MEDIDA (Fase 11), con las lineas ya contadas del diff. `status: NO_CHANGE_REQUIRED` es la unica forma legitima de un ChangeSet vacio, y solo si la tarea no exige modificacion: un `DONE` con cero mutaciones se rechaza en el bucle."
+    },
+    "Finding": {
+      "why": "Un hallazgo. Sin evidencia citable no es un hallazgo.",
+      "required": [
+        "file",
+        "symbol",
+        "claim",
+        "severity",
+        "evidence"
+      ],
+      "optional": [
+        "confidence",
+        "lens",
+        "agent",
+        "model",
+        "verdict",
+        "votes",
+        "counts",
+        "why",
+        "fingerprint",
+        "scope",
+        "status",
+        "carried"
+      ],
+      "lifecycle": [
+        "NEW",
+        "UNCHANGED",
+        "CARRIED",
+        "REGRESSED",
+        "FIXED"
+      ],
+      "severity": [
+        "P0",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5"
+      ],
+      "verdict": [
+        "CONFIRMED",
+        "REFUTED",
+        "UNDECIDED"
+      ],
+      "$note": "DOS identidades, y son una jerarquia, no dos opiniones. DENTRO de una ronda: (file, symbol, claim), que es lo que deduplica -- NUNCA la linea. ENTRE rondas: `fingerprint`, la misma tupla engrosada (file, symbol, esqueleto del claim), porque cada ronda es otra invocacion y el revisor reformula. Todo findingKey cae en exactamente un fingerprint, nunca al reves. `status` es el ciclo de vida frente a la ronda anterior."
+    },
+    "Verdict": {
+      "why": "El umbral del DoD: 0 hallazgos P0-P5 confirmados tras refutacion.",
+      "required": [
+        "pass",
+        "blockers",
+        "refutationRate"
+      ],
+      "optional": [
+        "raw",
+        "unified",
+        "undecided",
+        "disagreements",
+        "passes",
+        "convergenceStatus",
+        "specificationBlocked",
+        "round",
+        "lifecycle",
+        "findings",
+        "reappeared",
+        "displaced",
+        "progress",
+        "rounds"
+      ],
+      "convergenceStatus": [
+        "CONVERGED",
+        "CONVERGING",
+        "DISPLACING",
+        "OSCILLATING",
+        "SPECIFICATION_BLOCKED",
+        "UNKNOWN"
+      ],
+      "$note": "Fase 11. El recuento de bloqueantes NO dice si la vuelta avanza: `convergenceStatus` responde si el problema se REDUCE (CONVERGING), se DESPLAZA (DISPLACING), gira en circulos (OSCILLATING) o lo que falla es la tarea (SPECIFICATION_BLOCKED). Los dos ultimos ENDURECEN el onFail de la etapa a STOP: reintentar produce mas de lo mismo. El artefacto se escribe TAMBIEN cuando la etapa falla -- lanzar dejaba `payload: null` justo en la ronda que importa."
+    },
+    "EvidencePackage": {
+      "why": "Regla #0: NO EVIDENCE -> NO PROGRESS. El unico contrato obligatorio.",
+      "required": [
+        "sha",
+        "branch",
+        "mode",
+        "checks",
+        "verdict"
+      ],
+      "optional": [
+        "planRef",
+        "sbom",
+        "findings",
+        "models",
+        "executionId",
+        "summary",
+        "evidencePath",
+        "gateChecks"
+      ],
+      "$note": "`evidencePath` y `gateChecks` (Fase 9): el gate escribe en el .harness/evidence/ del WORKSPACE, no en el del arbol principal. Sin la ruta, un consumidor busca en el arbol equivocado; sin los checks, la corrida no se reconstruye entera desde .harness/runs/<id>/."
+    },
+    "ExecutionAssignment": {
+      "why": "Compute: QUIEN ejecuta. Resuelto por el router, no elegido por un modelo.",
+      "required": [
+        "capability",
+        "provider",
+        "model"
+      ],
+      "optional": [
+        "avoid",
+        "why",
+        "all",
+        "decisions",
+        "independence"
+      ],
+      "independenceStatus": [
+        "INDEPENDENT",
+        "DEGRADED"
+      ],
+      "$note": "Para `reviewer`, `avoid` lleva el proveedor del builder (ADR-003). `independence` (Fase 11) registra las TRES fuentes -- quien escribe, quien revisa y quien refuta-- y sus FAMILIAS de razonamiento. La familia no es el proveedor: `catalog.modelFamily` corrige por modelo, porque ollama sirve la familia que tenga descargada y un `ollama:deepseek-coder-v2` revisando a un `deepseek:deepseek-v4-pro` hereda su punto ciego. `DEGRADED` significa que no habia tercera familia viva y la refutacion recae en el revisor: se declara, nunca se degrada en silencio. Lo decide Compute, que es determinista -- un modelo no puede declararse independiente a si mismo."
+    },
+    "Workspace": {
+      "why": "Sandbox: DONDE puede equivocarse sin danar el arbol real.",
+      "required": [
+        "kind",
+        "path",
+        "rollback"
+      ],
+      "kind": [
+        "worktree",
+        "docker",
+        "none"
+      ],
+      "$note": "`none` solo es legitimo para capacidades que no escriben."
+    },
+    "ExecutionTrace": {
+      "why": "Observability: el CAMINO, no solo el veredicto. Sin executionId no se reconstruye una corrida.",
+      "required": [
+        "executionId",
+        "stages",
+        "startedAt",
+        "endedAt"
+      ],
+      "optional": [
+        "logs",
+        "statusCodes",
+        "tokens",
+        "parentExecutionId",
+        "plan",
+        "planHash",
+        "models",
+        "tools",
+        "toolsUsed",
+        "toolCalls",
+        "mutations",
+        "findings",
+        "convergence",
+        "securityResults",
+        "tests",
+        "finalEvidence",
+        "metrics",
+        "graph",
+        "changeSurface",
+        "providers"
+      ],
+      "$note": "Fase 9. Todo lo opcional se deriva de los ARTEFACTOS, no de lo que declare un modelo. `graph` existe y va MISSING hasta que Graphify entre con su fase (ADR-006). Fase 11: `providers` es la telemetria por (proveedor, modelo) -- duracion SIEMPRE, que la mide el harness; `tokens*` en null cuando el proveedor no los publica, que NO es cero; `estimatedCost` siempre null con su motivo, porque el catalogo declara el coste por tier cualitativo y multiplicar por un precio que este repo no tiene seria fabricar la medida."
+    },
+    "SecurityReport": {
+      "why": "Security: CI/CD, SCA, SBOM, SAST, OWASP. Lo no ejecutado se declara MISSING.",
+      "required": [
+        "sca",
+        "sbom",
+        "sast",
+        "owasp"
+      ],
+      "optional": [
+        "secrets",
+        "findings"
+      ]
+    },
+    "CapabilitySet": {
+      "why": "Capability layer: que sabe hacer el sistema con sus modelos, tools y skills.",
+      "required": [
+        "capabilities"
+      ],
+      "optional": [
+        "tools",
+        "skills",
+        "plugins"
+      ]
+    },
+    "AdapterBinding": {
+      "why": "Adapter layer: puertos y adaptadores; que proveedor sirvio cada capacidad.",
+      "required": [
+        "bindings"
+      ],
+      "$note": "Es el registro de lo que REALMENTE se invoco, no de lo declarado."
+    },
+    "LearningRecord": {
+      "why": "Learning: el filtro hacia memory/. Que vale la pena guardar y de que clase es.",
+      "required": [
+        "worthKeeping"
+      ],
+      "optional": [
+        "memoryEntries",
+        "adr",
+        "lesson"
+      ],
+      "$note": "worthKeeping puede ser false, y decirlo es un resultado valido."
+    },
+    "FindingSet": {
+      "why": "Lo que produce una etapa de revision: N hallazgos, no uno. `Finding` describe la forma de cada elemento.",
+      "required": [
+        "findings"
+      ],
+      "optional": [
+        "lens",
+        "reviewedBy",
+        "passes",
+        "passesOk",
+        "disagreements",
+        "undecided",
+        "independence"
+      ],
+      "$note": "Salio al correr el anillo: Validation devolvia {findings:[...]} contra un contrato que exigia los campos de UN hallazgo en la raiz.",
+      "elements": {
+        "findings": "Finding"
+      },
+      "$note_elements": "`elements` dice QUE contrato cumple cada elemento de la lista. Sin el, `FindingSet` solo exigia que `findings` existiera: una lista de hallazgos vacios de contenido la satisfacia, y en H-20260819-68ac6919 la satisfizo con dos `claim` vacios."
+    },
+    "Vote": {
+      "why": "UN voto sobre un hallazgo que el refutador YA TIENE DELANTE. No es un hallazgo: es un veredicto sobre uno ajeno.",
+      "required": [
+        "id",
+        "vote"
+      ],
+      "optional": [
+        "reason"
+      ],
+      "vote": [
+        "CONFIRMED",
+        "REFUTED"
+      ],
+      "$note": [
+        "NO CONFUNDIR CON `Verdict`, que es la salida de Convergence -- el umbral del",
+        "DoD. Este es el voto de UNA pasada sobre UN hallazgo. Se llamo `Vote` justo",
+        "por eso: el nombre obvio ya estaba cogido por otra cosa.",
+        "",
+        "POR QUE EXISTE, y es C-3 aplicado donde mas dolia.",
+        "",
+        "La pasada de refutacion devolvia un `FindingSet`: los MISMOS hallazgos con su",
+        "veredicto. Eso obligaba al modelo a reproducir `file`, `symbol`, `claim`,",
+        "`severity` y `evidence` de cada uno SOLO para que el harness pudiera volver a",
+        "calcular su identidad y casar el voto. Dos costes, los dos medidos:",
+        "",
+        "1. SALIDA. Reescribir N hallazgos enteros para emitir N veredictos es el camino",
+        "   directo al techo de salida que ya mato tres vueltas. El plan lo dice: el",
+        "   siguiente escalon no es un numero mas grande, es un contrato mas corto.",
+        "",
+        "2. IDENTIDAD. El voto se casaba recalculando `findingKey`/`fingerprint` sobre lo",
+        "   que el modelo devolvia. Un refutador de OTRA familia reformula --que es justo",
+        "   lo que se le pide-- y la clave deja de coincidir: el voto se descarta como",
+        "   abstencion. Medido en H-20260818-50778834: 6 votos emitidos, 6 tirados.",
+        "",
+        "MEDIDO en H-20260821-575882c8: la pasada que SI contesto devolvio 6 elementos",
+        "sin `file`, `symbol`, `claim`, `severity` ni `evidence`, y el contrato la",
+        "rechazo entera. El modelo hacia su trabajo --votar-- y se le pedia el de otro.",
+        "",
+        "`id` es el `fingerprint` que el harness CALCULA y ENVIA. El modelo lo copia, no",
+        "lo deriva: una identidad que viaja no se puede perder al reformular."
+      ]
+    },
+    "VoteSet": {
+      "why": "Lo que produce UNA pasada de refutacion: N votos sobre los hallazgos que recibio.",
+      "required": [
+        "votes"
+      ],
+      "optional": [
+        "lens",
+        "reviewedBy"
+      ],
+      "elements": {
+        "votes": "Vote"
+      },
+      "$note": "`elements` obliga a que cada voto cumpla `Vote`. Sin el, una lista de objetos vacios satisfaria el contrato -- ya paso con FindingSet en H-20260819-68ac6919."
+    }
+  },
+  "stages": [
+    {
+      "stage": "Knowledge",
+      "consume": [
+        "RepoRef"
+      ],
+      "produce": "ArchitectureBaseline",
+      "capability": "researcher"
+    },
+    {
+      "stage": "Evidence",
+      "consume": [
+        "ArchitectureBaseline"
+      ],
+      "produce": "FactSet",
+      "capability": "researcher"
+    },
+    {
+      "stage": "Decision",
+      "consume": [
+        "FactSet"
+      ],
+      "produce": "DecisionRecord",
+      "capability": "architect"
+    },
+    {
+      "stage": "Plan",
+      "consume": [
+        "DecisionRecord",
+        "PlanRef"
+      ],
+      "produce": "WorkPackage",
+      "capability": "architect"
+    },
+    {
+      "stage": "Compute",
+      "consume": [
+        "WorkPackage"
+      ],
+      "produce": "ExecutionAssignment",
+      "capability": null
+    },
+    {
+      "stage": "Sandbox",
+      "consume": [
+        "ExecutionAssignment"
+      ],
+      "produce": "Workspace",
+      "capability": null
+    },
+    {
+      "stage": "Execution",
+      "consume": [
+        "WorkPackage",
+        "Workspace"
+      ],
+      "produce": "ChangeSet",
+      "capability": "builder"
+    },
+    {
+      "stage": "Security",
+      "consume": [
+        "ChangeSet"
+      ],
+      "produce": "SecurityReport",
+      "capability": "security"
+    },
+    {
+      "stage": "Validation",
+      "consume": [
+        "ChangeSet"
+      ],
+      "produce": "FindingSet",
+      "capability": "reviewer"
+    },
+    {
+      "stage": "Adversarial",
+      "consume": [
+        "FindingSet"
+      ],
+      "produce": "FindingSet",
+      "capability": "reviewer"
+    },
+    {
+      "stage": "Convergence",
+      "consume": [
+        "FindingSet"
+      ],
+      "produce": "Verdict",
+      "capability": null
+    },
+    {
+      "stage": "CapabilityLayer",
+      "consume": [
+        "ExecutionAssignment"
+      ],
+      "produce": "CapabilitySet",
+      "capability": null
+    },
+    {
+      "stage": "AdapterLayer",
+      "consume": [
+        "CapabilitySet"
+      ],
+      "produce": "AdapterBinding",
+      "capability": null
+    },
+    {
+      "stage": "Observability",
+      "consume": [
+        "Verdict",
+        "ChangeSet",
+        "SecurityReport",
+        "AdapterBinding"
+      ],
+      "produce": "ExecutionTrace",
+      "capability": null
+    },
+    {
+      "stage": "Evidence2",
+      "consume": [
+        "Verdict",
+        "SecurityReport",
+        "ExecutionTrace",
+        "AdapterBinding"
+      ],
+      "produce": "EvidencePackage",
+      "capability": "release"
+    },
+    {
+      "stage": "Learning",
+      "consume": [
+        "EvidencePackage"
+      ],
+      "produce": "LearningRecord",
+      "capability": "trigger"
+    }
+  ],
+  "$comment_stages": [
+    "16 etapas. `capability: null` = no la hace un modelo, y es deliberado:",
+    "un contrato que puede cumplirse sin un modelo se cumple sin un modelo."
+  ]
+}
