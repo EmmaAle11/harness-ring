@@ -1,0 +1,196 @@
+{
+  "generado": "2026-09-23",
+  "total_ficheros": 21,
+  "total_mb": 40.23,
+  "fuentes": [
+    {
+      "carpeta": "algoritmos",
+      "fichero": "6S191_MIT_DeepLearning_L1.pdf",
+      "bytes": 5246462,
+      "mb": 5.0,
+      "sha256": "faa99c092d35101faa0a99ba8fd136f5ec92c5e19a46b67b3c0b3baa58890f55",
+      "paginas": 108,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "6S191_MIT_DeepLearning_L2.pdf",
+      "bytes": 4449691,
+      "mb": 4.24,
+      "sha256": "020537e648bbe6d4cd71d5f4f287780215f52083684cf44b9fa560e8cb66030e",
+      "paginas": 83,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "6S191_MIT_DeepLearning_L5.pdf",
+      "bytes": 3380103,
+      "mb": 3.22,
+      "sha256": "4458c483a5a144d9cef56e8ec99eea2e8798f8b1501dbbb49b9bc09b78305e65",
+      "paginas": 58,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "6S191_MIT_DeepLearning_L7.pdf",
+      "bytes": 1546665,
+      "mb": 1.48,
+      "sha256": "c2df72c013d5fdf6448937c292b207467132658d744d79b945d67f22ddbd4ddb",
+      "paginas": 44,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2000.pdf",
+      "bytes": 85348,
+      "mb": 0.08,
+      "sha256": "529eac009182195431b5de78652fb76fea298a6ba3a596102031a8dea88d20b9",
+      "paginas": null,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2001.pdf",
+      "bytes": 575104,
+      "mb": 0.55,
+      "sha256": "36dfe59ed628e9b8f2802c020c642f79e32a46ac97320f1656adcf7ec64057c9",
+      "paginas": 6,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2002.pdf",
+      "bytes": 527791,
+      "mb": 0.5,
+      "sha256": "ba43d03fc3f6b282dfc75a797ec2661782ad781a8cede5ad6d6a673dfef08fde",
+      "paginas": 6,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2003.pdf",
+      "bytes": 1251195,
+      "mb": 1.19,
+      "sha256": "ff57a6f350b64afe8d2156674304ebcbcd93984cd7e1fd7bf625265070d4b752",
+      "paginas": 6,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2004.pdf",
+      "bytes": 399149,
+      "mb": 0.38,
+      "sha256": "66f349611ad90d06eb442baff13d5e6a8aac5097ea2df7988962e690193d00d1",
+      "paginas": 6,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2005.pdf",
+      "bytes": 762078,
+      "mb": 0.73,
+      "sha256": "8bf74e501d99a330e44885160e6952ee88adae11ffc82b33002dc9c33ae6c2d2",
+      "paginas": null,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2007.pdf",
+      "bytes": 1013071,
+      "mb": 0.97,
+      "sha256": "d0d3b8112c555356b63f3323f5117fff91787184af6fee5dcbea4d0f3a6278bf",
+      "paginas": 6,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2008.pdf",
+      "bytes": 297171,
+      "mb": 0.28,
+      "sha256": "28a3e4d5e99a66313ff2ce398849d352b690fac5a6056dcbc5efefc46e400e9b",
+      "paginas": 6,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "D18-2012.pdf",
+      "bytes": 110911,
+      "mb": 0.11,
+      "sha256": "cf056aa0380bfe6b483e46b21585cf9e90fb40485ace1d8793f0f1ebad7c9924",
+      "paginas": 6,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "Stanford University CS231n_ Deep Learning for Computer Vision.pdf",
+      "bytes": 215817,
+      "mb": 0.21,
+      "sha256": "e3f148bd8797ad4785c7500065d0f5715b380a9ce6ea793bf89ffe7545ab6f75",
+      "paginas": 10,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "algoritmos",
+      "fichero": "The Annotated Transformer.pdf",
+      "bytes": 2373103,
+      "mb": 2.26,
+      "sha256": "ba4c66acc19eab7050523acdf28dc0c95a2ca2e2cda30e2e8ca13c301068755f",
+      "paginas": 41,
+      "clasificacion": "A.5.12 · Publico / divulgacion cientifica"
+    },
+    {
+      "carpeta": "alineamiento",
+      "fichero": "MAI_CodeOfConduct.pdf",
+      "bytes": 461506,
+      "mb": 0.44,
+      "sha256": "bbd86377ed7e669ebd01fd125ec8613c05c74898db8a1a618a125d4cc103ddb0",
+      "paginas": 38,
+      "clasificacion": "A.5.12 · Publico / norma de conducta"
+    },
+    {
+      "carpeta": "skill-mat",
+      "fichero": "1706.03762v7.pdf",
+      "bytes": 2215244,
+      "mb": 2.11,
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "paginas": 15,
+      "clasificacion": "A.5.12 · Publico / material tecnico"
+    },
+    {
+      "carpeta": "skill-mat",
+      "fichero": "2001.08361v1.pdf",
+      "bytes": 2493004,
+      "mb": 2.38,
+      "sha256": "a41bd7877fd1a6bcbba096b2619618bd2f90e02488f2365644903eb2f7c6a494",
+      "paginas": 30,
+      "clasificacion": "A.5.12 · Publico / material tecnico"
+    },
+    {
+      "carpeta": "skill-mat",
+      "fichero": "2203.15556v1.pdf",
+      "bytes": 6004349,
+      "mb": 5.73,
+      "sha256": "3fd3632a8ef48171bd25282990221d49535d75356192f068b3b2ebe08f2aedd4",
+      "paginas": 36,
+      "clasificacion": "A.5.12 · Publico / material tecnico"
+    },
+    {
+      "carpeta": "skill-mat",
+      "fichero": "2305.18290v3.pdf",
+      "bytes": 1299212,
+      "mb": 1.24,
+      "sha256": "92cb3a2b71362acda98a789b03d88688fd33cf5fcf13f81d2b1de30ee7d3b67a",
+      "paginas": 27,
+      "clasificacion": "A.5.12 · Publico / material tecnico"
+    },
+    {
+      "carpeta": "skill-mat",
+      "fichero": "2401.02954v1.pdf",
+      "bytes": 7474751,
+      "mb": 7.13,
+      "sha256": "9be2b427133468d443ff3a6411287a6f64759ed1e9cdd9a07f07486f11b00591",
+      "paginas": 48,
+      "clasificacion": "A.5.12 · Publico / material tecnico"
+    }
+  ]
+}

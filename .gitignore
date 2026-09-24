@@ -1,4 +1,127 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# HARNESS RING · exclusiones alineadas con ISO/IEC 27001:2022 (Anexo A)
+#
+# Cada bloque cita el control que lo motiva. No es decoración: cuando alguien
+# proponga versionar algo de aquí, la discusión es contra un control, no contra
+# una opinión.
+#
+# PRINCIPIO RECTOR (A.8.12 · prevención de fuga de datos): este repositorio es
+# PÚBLICO. Lo que entra no se puede retirar — un `git rm` posterior deja el blob
+# en el historial y en cada clon. La exclusión es preventiva, no correctiva.
+#
+# ZERO TRUST aplicado al versionado: no se confía en que un fichero sea inocuo
+# por su nombre ni por su carpeta. Se excluye la FORMA (todo `*.key`, todo
+# `.env*`) y se readmite lo explícitamente seguro con `!`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── A.8.12 · Prevención de fuga de datos: credenciales y secretos ────────────
+.env
+.env.*
+!.env.example
+!.env.template
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.ppk
+credentials
+credentials.json
+service-account*.json
+gha-creds-*.json
+.netrc
+.npmrc
+.pypirc
+.docker/config.json
+secrets/
+secretos/
+*.secret
+*-secrets.*
+*_secrets.*
+token.txt
+tokens.txt
+apikey*
+api-key*
+API_KEY*
+
+# ── A.5.34 · Privacidad y protección de PII ──────────────────────────────────
+# Datos personales: nunca en un repositorio público, ni siquiera anonimizados a
+# ojo. La anonimización se demuestra con un barrido, no se declara.
+*.pii
+pii/
+datos-personales/
+expedientes/
+clientes/
+*rfc*.csv
+*curp*.csv
+*.vcf
+*.ics
+
+# ── A.5.12 · Clasificación de la información: volcados y respaldos ───────────
+# Un dump de base de datos es la clase de información más sensible que puede
+# entrar por descuido: trae PII, credenciales y estructura interna a la vez.
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+*.backup
+dump/
+dumps/
+backup/
+backups/
+
+# ── A.5.15 · Control de acceso: configuración local del equipo ───────────────
+# Rutas absolutas y config personal revelan topología de la máquina del
+# operador. No son secretos, pero son reconocimiento gratuito para un atacante.
+.vscode/
+.idea/
+*.local
+*.local.*
+.direnv/
+.envrc
+
+# ── A.8.31 · Separación de entornos: artefactos de ejecución ─────────────────
 node_modules/
 .harness/
 *.log
+logs/
+coverage/
+.nyc_output/
+dist/
+build/
+tmp/
+temp/
+.cache/
+
+# ── A.5.37 · Procedimientos documentados: datasets de entrenamiento ──────────
+# Los PDF de origen NO se versionan: pesan decenas de MB, tienen licencias de
+# terceros y un repositorio de código no es un almacén documental.
+#
+# Lo que SÍ entra es el MANIFIESTO (`dataset/**/*.md`, `*.json`): procedencia,
+# licencia, hash y qué se extrajo. Así el dataset es auditable y reproducible
+# sin redistribuir material ajeno — que es justamente lo que exigen A.5.37
+# (procedimientos operativos documentados) y A.5.32 (propiedad intelectual).
+dataset/**/*.pdf
+dataset/**/*.epub
+dataset/**/*.mobi
+dataset/**/*.docx
+dataset/**/*.zip
+dataset/**/*.tar.gz
+!dataset/**/*.md
+!dataset/**/*.json
+!dataset/**/README.md
+
+# ── Ruido del sistema operativo ──────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.swp
+*.swo
