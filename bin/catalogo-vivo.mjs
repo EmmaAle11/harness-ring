@@ -29,7 +29,7 @@
 import { readFileSync } from 'node:fs';
 import { fantasmas, resumen } from '../lib/catalogo-vivo.mjs';
 
-const RAIZ = new URL('../../', import.meta.url).pathname;
+const RAIZ = new URL('../', import.meta.url).pathname;
 const leer = (p) => JSON.parse(readFileSync(`${RAIZ}${p}`, 'utf8'));
 
 /**
@@ -70,8 +70,8 @@ async function servidosDe(nombre, cfg, ms = 8000) {
   }
 }
 
-const router = leer('harness/policy/router.json');
-const catalog = leer('harness/policy/catalog.json');
+const router = leer('policy/router.json');
+const catalog = leer('policy/catalog.json');
 
 const servidos = {};
 const porQueNo = {};

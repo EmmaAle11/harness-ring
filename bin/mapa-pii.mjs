@@ -24,7 +24,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
+const RAIZ = fileURLToPath(new URL('../', import.meta.url));
 const SRC = join(RAIZ, 'src');
 const RFC = /ZZZ[0-9]{6}[A-Za-z0-9]{3}/g;
 const SENAL = /\b(distint|otra|otro|ajen|NO coincide|no comparten|cross|fuga|diferente|segundo|ambos)\b/i;

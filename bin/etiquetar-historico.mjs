@@ -16,7 +16,7 @@ import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { veredicto, determinismo, CODIGOS } from '../lib/reason-code.mjs';
 
-const RAIZ = new URL('../../', import.meta.url).pathname;
+const RAIZ = new URL('../', import.meta.url).pathname;
 const BASE = join(RAIZ, '.harness/runs');
 
 const filas = [];

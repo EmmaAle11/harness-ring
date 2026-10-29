@@ -14,7 +14,7 @@ import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { veredicto } from '../lib/reason-code.mjs';
 
-const RAIZ = new URL('../../', import.meta.url).pathname;
+const RAIZ = new URL('../', import.meta.url).pathname;
 const BASE = join(RAIZ, '.harness/runs');
 const DIMS = ['files', 'modulesTouched', 'domainsTouched', 'testsTouched'];
 

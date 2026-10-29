@@ -78,11 +78,26 @@ export function crearAnfitrion({ raiz, harnessDir, runtimeDir, origen = 'inyecta
  * deducido y uno inyectado no son lo mismo, y la traza tiene que distinguirlos.
  */
 export function anfitrionPorDefecto() {
-  const H = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const aqui = dirname(fileURLToPath(import.meta.url));
+  // Este fichero vive en `<repo>/ports/host.mjs`. El motor puede estar en DOS
+  // formas, y la raiz se deduce distinta en cada una:
+  //
+  //   ANIDADO   <host>/harness/ports/host.mjs   -> raiz = <host>   (motor subdir)
+  //   PLANO     <repo>/ports/host.mjs           -> raiz = <repo>   (motor = raiz)
+  //
+  // Se distingue por lo que hay un nivel arriba de `ports/`: si existe un
+  // directorio `harness/` ahi, el motor vive anidado y la raiz es el padre;
+  // si no, el motor ES la raiz y raiz = ese nivel.
+  const motorDir = join(aqui, '..');
+  const candidato = join(motorDir, '..');
+  const anidado = existsSync(join(candidato, 'harness'));
+  const raiz = anidado ? candidato : motorDir;
   return crearAnfitrion({
-    raiz: join(H, '..'),
-    harnessDir: H,
-    origen: 'deducida de import.meta.url (compatibilidad: el motor vive dentro del arbol auditado)',
+    raiz,
+    harnessDir: motorDir,
+    origen: anidado
+      ? 'deducida de import.meta.url (motor anidado: raiz = padre del directorio harness/)'
+      : 'deducida de import.meta.url (estructura plana: el motor es la raiz del repositorio)',
   });
 }
 
