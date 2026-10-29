@@ -17,7 +17,8 @@ import { execFileSync } from 'node:child_process';
 import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { redactarSecretos } from '../lib/secretos.mjs';
-import { ROOT, RUNTIME, loadCapabilities, loadRouter, loadCatalog } from '../lib/capabilities.mjs';
+import { ROOT, RUNTIME, loadCapabilities, loadRouter, loadCatalog, loadLearningPolicy } from '../lib/capabilities.mjs';
+import { escribir as escribirMemoria } from '../lib/memoria-escritor.mjs';
 import { resolveModel } from '../lib/router.mjs';
 import { converge, bloqueantes } from '../lib/converge.mjs';
 import { saveState, loadState, renderState } from '../lib/state.mjs';
@@ -459,6 +460,25 @@ export async function correrAnillo({ manifest, specId }) {
       const n = (v) => candidates.filter((c) => c.decision.verdict === v).length;
       console.error(`  candidatos: ${n('PROMOTE')} PROMOTE · ${n('REVIEW')} REVIEW · ${n('REJECT')} REJECT`
         + ` -> ${pc.replace(ROOT + '/', '')}`);
+
+      // EL ULTIMO ESLABON. Sin esto la cadena se corta aqui: los candidatos
+      // quedaban en `.harness/learning/` y la vuelta N+1 arranca leyendo
+      // `memory/`, asi que volvia a proponer lo mismo como novedad. El anillo
+      // decidia PROMOTE y no aprendia nada.
+      //
+      // Escribir es un paso APARTE de decidir, y sigue siendo asi: el escritor
+      // no re-juzga, solo ejecuta los PROMOTE ya resueltos. REVIEW y REJECT se
+      // quedan en `.harness/learning/` para que un humano los vea.
+      const w = escribirMemoria(candidates, loadLearningPolicy(), { raiz: ROOT });
+      if (w.escritos.length) {
+        console.error(`  memory: +${w.escritos.length} promovida(s)`);
+        for (const e of w.escritos) console.error(`    ${e.path.replace(ROOT + '/', '')}`);
+      }
+      // Lo omitido se nombra: un PROMOTE que no llego a disco sin que nadie lo
+      // diga es la version silenciosa del mismo defecto que esto arregla.
+      for (const o of w.omitidos.filter((x) => x.verdict === 'PROMOTE')) {
+        console.error(`  memory: NO escrita '${o.key}' — ${o.motivo}`);
+      }
     } catch (e) {
       console.error(`  candidatos: no se pudieron resolver — ${e.message}`);
     }

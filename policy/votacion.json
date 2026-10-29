@@ -1,0 +1,141 @@
+{
+  "$comment": [
+    "QUORUM DE AUDITORIA. Cuatro votantes de familias DISTINTAS, ninguno el modelo",
+    "primario. Dos modelos de la misma familia comparten sesgos de entrenamiento:",
+    "su acuerdo es correlacion, no confirmacion. Es ADR-003 --reviewer de familia",
+    "distinta al builder-- aplicado a la auditoria.",
+    "",
+    "MODO: 'sombra' registra el veredicto sin bloquear; 'bloqueante' hace fallar el",
+    "gate. Se empieza en sombra y solo sube cuando la varianza medida lo permita,",
+    "que es el procedimiento que refuto theta=0.6 en el rho-gate: el umbral sale de",
+    "los datos, no de la intuicion."
+  ],
+  "version": 1,
+  "modo": "sombra",
+
+  "$comment_regla": [
+    "DOS REGLAS, Y LA ESTRICTA MANDA POR DEFECTO.",
+    "",
+    "  estricta  los CUATRO votos >= puntajeMinimo. Es la regla pedida.",
+    "  mixta     minimo >= minimoTolerado Y media >= puntajeMinimo.",
+    "",
+    "La mixta NO es una rebaja: es la regla correcta SI la medicion demuestra que un",
+    "juez oscila. Con varianza +-1 medida, exigir que los cuatro superen 9 en la",
+    "misma corrida convierte el muestreo en loteria -- un commit legitimo quedaria",
+    "bloqueado por un dado, y uno flojo pasaria por suerte.",
+    "",
+    "CUAL USAR SE DECIDE MIDIENDO, no eligiendo: `harness/bin/varianza-votos.mjs`",
+    "corre k veces sobre el MISMO artefacto y reporta el rango por votante. El",
+    "criterio queda fijado ANTES de ver el resultado:",
+    "   rango 0        -> estricta, y se puede subir a bloqueante",
+    "   rango 1        -> mixta (la estricta seria loteria)",
+    "   rango >= 2     -> ese juez no sirve como puerta: se sustituye",
+    "",
+    "`reglaDecididaPor` queda vacio hasta que exista esa medicion. Un umbral sin",
+    "medicion que lo respalde es una creencia con formato de configuracion."
+  ],
+  "quorum": {
+    "regla": "estricta",
+    "votosMinimos": 4,
+    "puntajeMinimo": 9,
+    "minimoTolerado": 8,
+    "familiasDistintas": true,
+    "escala": { "min": 0, "max": 10 },
+    "reglaDecididaPor": null
+  },
+
+  "$comment_determinismo": [
+    "DECODIFICACION GREEDY, NO MUESTREO. `temperature: 0.1` NO es determinista:",
+    "sigue muestreando de una distribucion, solo con menos entropia. Medido sobre",
+    "el MISMO artefacto (sha256 707468095f75), 4 corridas de gpt-oss:20b:",
+    "",
+    "  temperature 0.1 sin seed  votos [8,8,9,9]  CUATRO hashes distintos",
+    "  temperature 0 + top_k 1   votos [9,9,9,9]  UN hash: fc1720f4",
+    "",
+    "Con top_k=1 el modelo toma siempre el token de maxima probabilidad y la",
+    "funcion deja de ser estocastica: mismo prompt -> misma salida byte a byte.",
+    "",
+    "EL SEED NO ELIGE EL VEREDICTO, y se comprobo ANTES de fijarlo porque el",
+    "primero que probe daba justo el 9 que desbloquea el quorum. Con seeds",
+    "1, 7, 42, 1337 y 2026 el voto es 9 en los cinco: en greedy el seed es",
+    "irrelevante -- no hay sorteo que sembrar. Se fija por reproducibilidad, no",
+    "por su nota.",
+    "",
+    "CONSECUENCIA: el ruido que atribui al 'juez' era MI configuracion. Un panel",
+    "greedy SI distingue 8 de 9 de forma reproducible, y el umbral 4x9 pasa a ser",
+    "exigible."
+  ],
+  "muestreo": {
+    "temperature": 0,
+    "seed": 7,
+    "topK": 1,
+    "topP": 1,
+    "timeoutMs": 900000,
+    "$comment": [
+      "temperature 0.1 es la MEDIDA como correcta en este anillo: subirla a 0.5",
+      "degrado el recorrido un 28,57% en etapas ejecutadas y rompio el determinismo.",
+      "No elimina la varianza de un LLM --nada lo hace-- pero es el minimo ruido",
+      "alcanzable sin colapsar la diversidad de la respuesta."
+    ]
+  },
+
+  "$comment_escape": [
+    "VIA DE ESCAPE DECLARADA, para no crear un SPOF.",
+    "",
+    "Si el quorum bloqueante es el unico camino y un votante cae, el repositorio",
+    "entero queda sin poder commitear: la puerta de calidad se convierte en punto",
+    "unico de fallo. `HARNESS_VOTACION_OMITIR=<motivo>` registra SKIP con ESE motivo",
+    "en la evidencia.",
+    "",
+    "NO ES UNA PUERTA TRASERA SILENCIOSA: exige un motivo no vacio, queda escrito en",
+    "el artefacto de evidencia con fecha, y `omitirExigeMotivo` impide usarla como",
+    "interruptor. Una omision auditable es lo contrario de una omision oculta."
+  ],
+  "escape": {
+    "variable": "HARNESS_VOTACION_OMITIR",
+    "omitirExigeMotivo": true,
+    "motivoMinimoCaracteres": 12
+  },
+
+  "$comment_transporte": [
+    "CADA VOTANTE DECLARA SU TRANSPORTE. `ollama` es local y gratuito; `deepseek`",
+    "es la API de pago, que lee su clave de DEEPSEEK_API_KEY y NO de un fichero",
+    "citado en el codigo.",
+    "",
+    "maxTokens NO ES UN DETALLE DE AFINADO: deepseek-flash y deepseek-v4-pro son",
+    "MODELOS DE RAZONAMIENTO. Gastan tokens en `reasoning_content` ANTES de emitir",
+    "una sola palabra de respuesta. Medido: con max_tokens=30 los dos devolvieron",
+    "content='' y finish_reason='length' -- voto NULO, no por no saber puntuar sino",
+    "porque el presupuesto se agoto razonando. Con 2000 los dos respondieron a la",
+    "primera (76 y 163 tokens totales, 20 y 54 de razonamiento).",
+    "",
+    "Es el mismo modo de fallo que el spinner de TTY: el voto era valido y el",
+    "INSTRUMENTO no lo recogia. Por eso `presupuestoSuficiente` es una funcion con",
+    "test propio y no un numero suelto en una llamada."
+  ],
+  "presupuestoMinimoRazonadores": 1000,
+
+  "votantes": [
+    { "modelo": "qwen2.5-coder:7b",      "familia": "qwen",     "gb": 4.7, "transporte": "ollama" },
+    { "modelo": "gemma3:12b",            "familia": "gemma",    "gb": 8.1, "transporte": "ollama" },
+    { "modelo": "deepseek-v4-pro",       "familia": "deepseek", "transporte": "deepseek",
+      "razonador": true, "maxTokens": 2000, "envKey": "DEEPSEEK_API_KEY",
+      "url": "https://api.deepseek.com/chat/completions",
+      "$sustituye": "deepseek-coder-v2:16b (local). NO se cambia porque fuera el juez que bloquea -- eso seria elegir jueces por su nota. Se cambia porque hay acceso de pago a un modelo mas capaz de la MISMA familia, y un juez mejor informado es mejor juez vote lo que vote." },
+    { "modelo": "gpt-oss:20b",           "familia": "gptoss",   "gb": 13.0, "transporte": "ollama",
+      "razonador": true, "maxTokens": 2048,
+      "$medido": "MISMO defecto que los de pago, y no lo declare hasta que voto NULO: sin num_predict devuelve done_reason=length con response vacia. Con 512 y con 2048 responde. El presupuesto decide SI HAY voto, no cual: 512 -> [8,8,9,9] media 8.5 · 2048 -> [8,8,8,9] media 8.25, rangos solapados." }
+  ],
+
+  "$comment_secuencial": [
+    "SECUENCIAL, NO PARALELO: 18 GB libres medidos contra modelos de 8-13 GB. Dos",
+    "de 13 GB a la vez disparan el OOM que ya tumbo este equipo. Se carga, se vota,",
+    "se descarga con `ollama stop`."
+  ],
+
+  "$comment_gemini": [
+    "GEMINI NO PUEDE SER VOTANTE: vetado de por vida por decision del usuario, ya",
+    "mecanizado en harness/lib/compute.mjs (PROVEEDORES_VETADOS). Esta lista lo",
+    "respeta por construccion; `votacion.test.mjs` lo comprueba."
+  ]
+}
