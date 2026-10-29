@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { TIPOS, credencialSintetica, contenidoDeSemilla } from '../../lib/credenciales-sinteticas.mjs';
 
 const GATE = () => readFileSync(new URL('../../../scripts/gate.sh', import.meta.url), 'utf8');
+
+const HAY_GATE = existsSync(fileURLToPath(new URL('../../../scripts/gate.sh', import.meta.url)));
 
 const LINEA_PUERTA = () => GATE().split('\n').find((l) => l.includes('AKIA') && /SEC_PAT=|git grep/.test(l));
 
@@ -34,7 +37,8 @@ const aRegExpJs = (p) => new RegExp(p
 
 const ALTERNATIVAS = () => partirAlternativas(valorSecPat(LINEA_PUERTA() ?? ''));
 
-test('la puerta se lee, no se copia: ocho alternativas', () => {
+test('la puerta se lee, no se copia: ocho alternativas', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   assert.ok(LINEA_PUERTA(), 'no encuentro la comprobación de secretos en la puerta');
   // 6 -> 8 al fusionar el tronco el 2026-09-07: entran el literal a PASSWORD/SECRET/TOKEN y la
   // credencial de un realm export. La cifra es un TRINQUETE de cobertura, no una descripción: si
@@ -42,7 +46,8 @@ test('la puerta se lee, no se copia: ocho alternativas', () => {
   assert.equal(ALTERNATIVAS().length, 8, `la puerta busca ${ALTERNATIVAS().length} formas: revisa la cobertura`);
 });
 
-test('TODO patrón de la puerta tiene generador — la dirección que importa', () => {
+test('TODO patrón de la puerta tiene generador — la dirección que importa', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // ESTE TEST ESTABA ESCRITO AL REVES, y su propio comentario nombraba el modo de
   // fallo correcto: «si alguien añade un patrón a gate.sh y no un generador aquí,
   // el criterio deja de poder probarse para ese patrón y nadie se entera».
@@ -59,7 +64,8 @@ test('TODO patrón de la puerta tiene generador — la dirección que importa', 
   }
 });
 
-test('y ningún generador produce algo que la puerta no cace', () => {
+test('y ningún generador produce algo que la puerta no cace', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // La vuelta: un generador cuya salida no case con ninguna alternativa siembra
   // algo inofensivo y la vuelta demostraría que la puerta NO muerde.
   for (const tipo of Object.keys(TIPOS)) {
@@ -69,7 +75,8 @@ test('y ningún generador produce algo que la puerta no cace', () => {
   }
 });
 
-test('el generador NO deja una credencial completa en lo versionado', () => {
+test('el generador NO deja una credencial completa en lo versionado', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // La propiedad que hace que esto se pueda commitear: el módulo lleva el
   // PREFIJO y un generador, nunca una cadena que cumpla el patrón entero. Si
   // alguien pega un ejemplo real en un comentario, este test cae.
@@ -83,7 +90,8 @@ test('el generador NO deja una credencial completa en lo versionado', () => {
   for (const alt of ALTERNATIVAS()) assert.doesNotMatch(test, aRegExpJs(alt));
 });
 
-test('CI sube la EVIDENCIA, no el workspace donde vive la semilla', () => {
+test('CI sube la EVIDENCIA, no el workspace donde vive la semilla', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // La semilla no abre nada, pero tiene la forma exacta de una clave real: eso es
   // justo lo que la hace útil, y también lo que hace que cualquier escáner la
   // marque. Vive en `.harness/workspaces/` (el fichero sembrado) y en

@@ -25,13 +25,15 @@ test('hay al menos un riesgo aceptado que comprobar', () => {
 for (const r of aceptados) {
   const base = join(RAIZ, ARBOL[r.arbol] ?? r.arbol, 'src');
 
-  test(`${r.paquete}/${r.cve}: el guardian declarado EXISTE`, () => {
+  test(`${r.paquete}/${r.cve}: el guardian declarado EXISTE`, (t) => {
+    if (!existsSync(base)) { t.skip(`sin ${ARBOL[r.arbol] ?? r.arbol}/src: este arbol no es el anfitrion DoxIA`); return; }
     assert.ok(r.test, 'la regla 3 exige `test`: sin guardian no se acepta');
     assert.ok(existsSync(join(base, r.test.replace(/^src\//, ''))),
       `el guardian declarado no esta en el arbol: ${r.arbol}/${r.test}. La aceptacion se apoya en un fichero que no existe`);
   });
 
-  test(`${r.paquete}/${r.cve}: los ficheros citados en la mitigacion EXISTEN`, () => {
+  test(`${r.paquete}/${r.cve}: los ficheros citados en la mitigacion EXISTEN`, (t) => {
+    if (!existsSync(base)) { t.skip(`sin ${ARBOL[r.arbol] ?? r.arbol}/src: este arbol no es el anfitrion DoxIA`); return; }
     const citados = (r.mitigacion ?? '').match(/[\w./-]+\.(ts|tsx|mjs|js)/g) ?? [];
     assert.ok(citados.length > 0, 'la mitigacion tiene que nombrar el fichero donde vive, no solo describirse');
     for (const c of citados) {
@@ -45,13 +47,14 @@ for (const r of aceptados) {
     assert.ok(r.alcance_del_guardian, 'falta `alcance_del_guardian`: sin el, un guardian de un fichero aparenta cubrir el arbol');
   });
 
-  test(`${r.paquete}/${r.cve}: la premisa del alcance se MIDE en este arbol`, () => {
+  test(`${r.paquete}/${r.cve}: la premisa del alcance se MIDE en este arbol`, (t) => {
     // Una aceptacion es una afirmacion sobre UN arbol y hay mas de uno: la misma frase era cierta
     // en `feat/harness-doxia` y falsa en `feat/staging-aafa` el 2026-09-02. Una premisa que se
     // puede contar no se declara: se cuenta, aqui, cada vez que corre la puerta.
     assert.ok(r.invariante, 'falta `invariante`: si la premisa del alcance se puede medir, se mide');
     const { arbol, patron, excluye, esperado } = r.invariante;
     const raiz = join(RAIZ, arbol);   // `arbol` del invariante es relativo a la RAIZ del repo
+    if (!existsSync(raiz)) { t.skip(`sin ${arbol}/: este arbol no es el anfitrion DoxIA`); return; }
     const hallados = [];
     const barrer = (dir) => {
       for (const e of readdirSync(dir, { withFileTypes: true })) {

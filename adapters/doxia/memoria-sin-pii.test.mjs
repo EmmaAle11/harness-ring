@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 // `memory/README.md` prohibe datos personales --«rutas de una maquina, correos, RFC, nombres»-- y
@@ -8,6 +8,8 @@ import { join } from 'node:path';
 // un RFC completo en el cuerpo de una entrada, versionado y empujado a tres ramas.
 // El barrido de secretos de la puerta no lo cubre: busca claves de proveedor, no PII de clientes.
 const RAIZ = new URL('../../../', import.meta.url).pathname;
+
+const HAY_MEMORY = existsSync(join(RAIZ, 'memory'));
 
 // Un RFC de persona moral son 3 letras + 6 digitos de fecha + 3 de homoclave; el de persona fisica, 4.
 const RFC = /\b[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}\b/g;
@@ -39,11 +41,13 @@ const listarFicheros = () => {
   return acc;
 };
 
-test('hay entradas de memoria que barrer', () => {
+test('hay entradas de memoria que barrer', (t) => {
+  if (!HAY_MEMORY) { t.skip('sin memory/: este arbol no es el anfitrion DoxIA'); return; }
   assert.ok(listarFicheros().length > 100, `solo ${listarFicheros().length} listarFicheros(): el barrido no esta mirando memory/`);
 });
 
-test('ninguna entrada de memory/ contiene RFC ni correos de clientes', () => {
+test('ninguna entrada de memory/ contiene RFC ni correos de clientes', (t) => {
+  if (!HAY_MEMORY) { t.skip('sin memory/: este arbol no es el anfitrion DoxIA'); return; }
   const malas = listarFicheros()
     .map((f) => [f.slice(RAIZ.length), barrer(readFileSync(f, 'utf8'))])
     .filter(([, h]) => h.length);

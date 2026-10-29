@@ -8,7 +8,10 @@
 // fallaban en cualquier repo sin DoxIA. Aqui su dependencia es honesta.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const HAY_GATE = existsSync(fileURLToPath(new URL('../../../scripts/gate.sh', import.meta.url)));
 
 //
 // El test lee el FUENTE de la puerta a proposito. Es el unico sitio donde vive
@@ -16,8 +19,9 @@ import { readFileSync } from 'node:fs';
 // que desaparece de ahi no rompe ningun otro test: se iria en silencio, que es
 // como se pierden las puertas.
 
-test('la puerta comprueba el arbol contra su manifiesto, y lo hace en --fast', () => {
-  const src = readFileSync(new URL('../../scripts/gate.sh', import.meta.url), 'utf8');
+test('la puerta comprueba el arbol contra su manifiesto, y lo hace en --fast', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
+  const src = readFileSync(new URL('../../../scripts/gate.sh', import.meta.url), 'utf8');
   assert.match(src, /record deps:hygiene/, 'el check desaparecio de la puerta');
   assert.match(src, /npm ls --depth=0/, 'ya no mira el disco');
   assert.match(src, /invalid\|extraneous/, 'dejo de buscar las dos formas de arbol sucio');
@@ -33,7 +37,8 @@ test('la puerta comprueba el arbol contra su manifiesto, y lo hace en --fast', (
     'deps:hygiene cayo dentro de --full: en CI el arbol siempre esta limpio y no comprobaria nada');
 });
 
-test('deps:hygiene NO se pronuncia sobre un node_modules prestado', () => {
+test('deps:hygiene NO se pronuncia sobre un node_modules prestado', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // El sandbox del anillo ENLAZA `node_modules` del arbol principal, y npm marca
   // como `extraneous` todo lo que hay dentro de un symlink: 422 falsos en el FE
   // la primera vez que una vuelta llego a la etapa 15. Un WARN que sale en TODAS
@@ -41,7 +46,7 @@ test('deps:hygiene NO se pronuncia sobre un node_modules prestado', () => {
   // lint-- y ademas la pregunta no tiene sentido: el arbol no es suyo.
   //
   // Se DECLARA SKIP con su motivo. Lo que no se puede comprobar no se aprueba.
-  const src = readFileSync(new URL('../../scripts/gate.sh', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../../../scripts/gate.sh', import.meta.url), 'utf8');
   assert.match(src, /if \[ -L "\$ROOT\/\$proj\/node_modules" \]/,
     'dejo de detectar el enlace: el WARN falso vuelve a cada vuelta');
   assert.match(src, /record deps:hygiene SKIP[\s\S]{0,140}prestado/,
@@ -61,8 +66,9 @@ test('deps:hygiene NO se pronuncia sobre un node_modules prestado', () => {
 // Asi que la asercion no se relaja, se AFINA: sigue exigiendo el WARN para lo primero y ahora
 // exige tambien el FAIL para lo segundo. Una regla que no distingue los dos casos protege al
 // equivocado.
-test('deps:hygiene DECLARA la deuda local y BLOQUEA la dependencia ausente', () => {
-  const src = readFileSync(new URL('../../scripts/gate.sh', import.meta.url), 'utf8');
+test('deps:hygiene DECLARA la deuda local y BLOQUEA la dependencia ausente', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
+  const src = readFileSync(new URL('../../../scripts/gate.sh', import.meta.url), 'utf8');
   assert.match(src, /record deps:hygiene WARN/,
     'un arbol sucio es deuda local, no un defecto del cambio en curso: '
     + 'bloquear por eso deja la puerta roja de nacimiento y nadie la usa');
@@ -79,8 +85,9 @@ test('deps:hygiene DECLARA la deuda local y BLOQUEA la dependencia ausente', () 
 // `ExpedienteScreen.tsx` que el lint SI senalaba: eran 2 lineas entre 3.649. Un
 // canal con relacion senal/ruido de 1 entre 3.649 esta encendido y no dice nada,
 // que es peor que estar apagado, porque parece que dice.
-test('los warnings de lint tienen TECHO, y romperlo es FAIL', () => {
-  const src = readFileSync(new URL('../../scripts/gate.sh', import.meta.url), 'utf8');
+test('los warnings de lint tienen TECHO, y romperlo es FAIL', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
+  const src = readFileSync(new URL('../../../scripts/gate.sh', import.meta.url), 'utf8');
   const m = /^LINT_WARN_MAX=(\d+)$/m.exec(src);
   assert.ok(m, 'el techo desaparecio de la puerta: la deuda vuelve a poder crecer');
   assert.ok(Number(m[1]) > 0 && Number(m[1]) < 100000, `techo absurdo: ${m[1]}`);
@@ -88,14 +95,16 @@ test('los warnings de lint tienen TECHO, y romperlo es FAIL', () => {
     'pasarse del techo tiene que ser FAIL: un WARN sobre 3.617 warnings es otro warning');
 });
 
-test('el techo AVISA cuando sobra, o deja de apretar', () => {
+test('el techo AVISA cuando sobra, o deja de apretar', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // Un techo que se queda muy por encima de la realidad vuelve a ser una nota.
   // Si la deuda baja de verdad, la puerta lo dice para que el techo la siga.
-  const src = readFileSync(new URL('../../scripts/gate.sh', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../../../scripts/gate.sh', import.meta.url), 'utf8');
   assert.match(src, /BAJA EL TECHO a/);
 });
 
-test('lo que el piso dice sobre los tests condicionales es CIERTO', () => {
+test('lo que el piso dice sobre los tests condicionales es CIERTO', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // Un piso sobre «tests que PASAN» es un piso sobre EL ENTORNO EN QUE SE MIDIO:
   // `node --test` no cuenta los saltados en `pass`, asi que cada test condicional
   // hace que la cifra dependa de donde se corra. Puse el piso con la cifra de mi
@@ -109,7 +118,7 @@ test('lo que el piso dice sobre los tests condicionales es CIERTO', () => {
   //
   // No fija el NUMERO --seria el literal de hoy-- sino que lo ESCRITO junto al
   // piso coincida con lo que hay.
-  const src = readFileSync(new URL('../../scripts/gate.sh', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../../../scripts/gate.sh', import.meta.url), 'utf8');
   assert.ok(/^HARNESS_TESTS_MIN=\d+$/m.test(src), 'el piso del harness desaparecio');
 
   // RECURSIVO desde harness/, no solo `lib/`. Con `readdirSync('./')` este
@@ -147,14 +156,16 @@ test('lo que el piso dice sobre los tests condicionales es CIERTO', () => {
 // una sola evidencia de pre-commit. El único verde era el que corría a mano — y
 // el día que vi un FAIL y commiteé igual, nada me paró.
 
-test('el pre-commit CONSUME la puerta, y no una copia de sus reglas', () => {
-  const hook = readFileSync(new URL('../../.husky/pre-commit', import.meta.url), 'utf8');
+test('el pre-commit CONSUME la puerta, y no una copia de sus reglas', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
+  const hook = readFileSync(new URL('../../../.husky/pre-commit', import.meta.url), 'utf8');
   assert.match(hook, /bash scripts\/gate\.sh --fast/,
     'el pre-commit dejó de llamar a la puerta: o no comprueba nada, o comprueba una copia que diverge en silencio');
 });
 
-test('la puerta DICE si el hook no está cableado, en vez de callarlo', () => {
-  const gate = readFileSync(new URL('../../scripts/gate.sh', import.meta.url), 'utf8');
+test('la puerta DICE si el hook no está cableado, en vez de callarlo', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
+  const gate = readFileSync(new URL('../../../scripts/gate.sh', import.meta.url), 'utf8');
   assert.match(gate, /record hook:pre-commit PASS/, 'la puerta ya no comprueba su propio consumidor');
   assert.match(gate, /record hook:pre-commit MISSING/,
     'sin la rama MISSING, un hook ausente es indistinguible de uno que pasa: el modo de fallo entero');

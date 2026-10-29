@@ -10,12 +10,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const LIB = resolve(fileURLToPath(new URL('../../../scripts/lib/cerrojo-full.sh', import.meta.url)));
+
+const HAY_CERROJO = existsSync(LIB);
 
 /** Corre un guion bash con la libreria ya cargada y devuelve su stdout. */
 const enBash = (guion) =>
@@ -26,7 +28,8 @@ const conCerrojo = (fn) => {
   try { return fn(join(dir, 'full.lock')); } finally { rmSync(dir, { recursive: true, force: true }); }
 };
 
-test('con el cerrojo libre, el turno se toma', () => {
+test('con el cerrojo libre, el turno se toma', (t) => {
+  if (!HAY_CERROJO) { t.skip('sin scripts/lib/cerrojo-full.sh: este arbol no es el anfitrion DoxIA'); return; }
   conCerrojo((f) => {
     const out = enBash(`tomar_turno_full '${f}' 1; echo "[$TURNO_ESTADO]"`);
     assert.match(out, /\[PASS\]/);
@@ -39,7 +42,8 @@ test('con el cerrojo libre, el turno se toma', () => {
 // subshell que moria en el acto, asi que el cerrojo se soltaba antes de que
 // empezara un solo test y `--full` daba PASS siempre. Este caso se pone rojo si
 // alguien vuelve a meter la llamada en una tuberia, un `$( )` o un `|`.
-test('el turno se queda en el proceso que llama, no en una subshell', () => {
+test('el turno se queda en el proceso que llama, no en una subshell', (t) => {
+  if (!HAY_CERROJO) { t.skip('sin scripts/lib/cerrojo-full.sh: este arbol no es el anfitrion DoxIA'); return; }
   conCerrojo((f) => {
     const out = enBash(`
       tomar_turno_full '${f}' 1
@@ -50,7 +54,8 @@ test('el turno se queda en el proceso que llama, no en una subshell', () => {
   });
 });
 
-test('si lo tiene otro, FAIL y la nota dice quien', () => {
+test('si lo tiene otro, FAIL y la nota dice quien', (t) => {
+  if (!HAY_CERROJO) { t.skip('sin scripts/lib/cerrojo-full.sh: este arbol no es el anfitrion DoxIA'); return; }
   conCerrojo((f) => {
     const out = enBash(`
       ( exec 9>>'${f}'; flock -x 9; echo "EL-VECINO pid=$BASHPID" > '${f}'; sleep 5 ) &
@@ -80,7 +85,8 @@ test('si lo tiene otro, FAIL y la nota dice quien', () => {
 // Este caso vigila esa defensa. No comprueba una palabra suelta: comprueba que el fichero
 // diga las TRES cosas por las que alguien deja de borrarlo -- que no se borre, que un pid
 // muerto es normal, y como se pregunta de verdad si esta libre.
-test('el fichero del cerrojo se explica a quien esta a punto de borrarlo', () => {
+test('el fichero del cerrojo se explica a quien esta a punto de borrarlo', (t) => {
+  if (!HAY_CERROJO) { t.skip('sin scripts/lib/cerrojo-full.sh: este arbol no es el anfitrion DoxIA'); return; }
   conCerrojo((f) => {
     enBash(`tomar_turno_full '${f}' 1`);
     const txt = readFileSync(f, 'utf8');
@@ -99,14 +105,16 @@ test('el fichero del cerrojo se explica a quien esta a punto de borrarlo', () =>
 // Lo que se protege no es impedir el segundo `--full` (a esas alturas ya corrio): es que el
 // PRIMERO deje de firmar PASS. Un cerrojo roto produce hoy un resultado con la FORMA de una
 // verificacion correcta, y esa es la averia entera.
-test('recien tomado, el turno esta intacto', () => {
+test('recien tomado, el turno esta intacto', (t) => {
+  if (!HAY_CERROJO) { t.skip('sin scripts/lib/cerrojo-full.sh: este arbol no es el anfitrion DoxIA'); return; }
   conCerrojo((f) => {
     const out = enBash(`tomar_turno_full '${f}' 1; turno_intacto '${f}'; echo "[$TURNO_INTACTO]"`);
     assert.match(out, /\[PASS\]/);
   });
 });
 
-test('si BORRAN el fichero a media corrida, el tenedor lo caza', () => {
+test('si BORRAN el fichero a media corrida, el tenedor lo caza', (t) => {
+  if (!HAY_CERROJO) { t.skip('sin scripts/lib/cerrojo-full.sh: este arbol no es el anfitrion DoxIA'); return; }
   conCerrojo((f) => {
     const out = enBash(`
       tomar_turno_full '${f}' 1
@@ -117,7 +125,8 @@ test('si BORRAN el fichero a media corrida, el tenedor lo caza', () => {
   });
 });
 
-test('si lo SUSTITUYEN --y entra un segundo--, el tenedor lo caza', () => {
+test('si lo SUSTITUYEN --y entra un segundo--, el tenedor lo caza', (t) => {
+  if (!HAY_CERROJO) { t.skip('sin scripts/lib/cerrojo-full.sh: este arbol no es el anfitrion DoxIA'); return; }
   conCerrojo((f) => {
     const out = enBash(`
       tomar_turno_full '${f}' 1
@@ -130,7 +139,8 @@ test('si lo SUSTITUYEN --y entra un segundo--, el tenedor lo caza', () => {
   });
 });
 
-test('sin turno tomado no se inventa un veredicto: SKIP', () => {
+test('sin turno tomado no se inventa un veredicto: SKIP', (t) => {
+  if (!HAY_CERROJO) { t.skip('sin scripts/lib/cerrojo-full.sh: este arbol no es el anfitrion DoxIA'); return; }
   conCerrojo((f) => {
     // No pudo comprobar != comprobo y esta mal. Colapsarlos es la clase que este repo
     // persigue (memory/failures/el-instrumento-que-confunde-error-con-vacio.md).

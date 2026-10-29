@@ -1,11 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { loadCapabilities } from '../../lib/capabilities.mjs';
 
 const C = JSON.parse(readFileSync(new URL('../../contracts/contracts.json', import.meta.url), 'utf8'));
 
-test('contracts.model refleja el manifiesto, etapa por etapa', () => {
+const H001_URL = new URL('../../../.kiro/specs/h-001-ring-execution/h-001.json', import.meta.url);
+const HAY_H001 = existsSync(H001_URL);
+
+test('contracts.model refleja el manifiesto, etapa por etapa', (t) => {
+  if (!HAY_H001) { t.skip('sin .kiro/specs/h-001-ring-execution/h-001.json: este arbol no es el anfitrion DoxIA'); return; }
   const M = JSON.parse(
     readFileSync(new URL('../../../.kiro/specs/h-001-ring-execution/h-001.json', import.meta.url), 'utf8'),
   );
@@ -16,13 +20,15 @@ const H1 = () => JSON.parse(
   readFileSync(new URL('../../../.kiro/specs/h-001-ring-execution/h-001.json', import.meta.url), 'utf8'),
 );
 
-test('ninguna etapa comparte nombre con otra: el mapa de handlers va por nombre', () => {
+test('ninguna etapa comparte nombre con otra: el mapa de handlers va por nombre', (t) => {
+  if (!HAY_H001) { t.skip('sin .kiro/specs/h-001-ring-execution/h-001.json: este arbol no es el anfitrion DoxIA'); return; }
   const nombres = H1().stages.map((s) => s.stage);
   assert.equal(new Set(nombres).size, nombres.length,
     'dos etapas homonimas hacen que la segunda ejecute el handler de la primera');
 });
 
-test('H-001 recorre las mismas 16 etapas del anillo y en el mismo orden', () => {
+test('H-001 recorre las mismas 16 etapas del anillo y en el mismo orden', (t) => {
+  if (!HAY_H001) { t.skip('sin .kiro/specs/h-001-ring-execution/h-001.json: este arbol no es el anfitrion DoxIA'); return; }
   assert.deepEqual(
     H1().stages.map((s) => s.stage),
     C.stages.map((s) => s.stage),
@@ -30,7 +36,8 @@ test('H-001 recorre las mismas 16 etapas del anillo y en el mismo orden', () => 
   );
 });
 
-test('H-001 solo usa contratos que existen', () => {
+test('H-001 solo usa contratos que existen', (t) => {
+  if (!HAY_H001) { t.skip('sin .kiro/specs/h-001-ring-execution/h-001.json: este arbol no es el anfitrion DoxIA'); return; }
   const conocidos = new Set(Object.keys(C.contracts));
   for (const s of H1().stages) {
     for (const x of [...s.input, s.output]) {
@@ -39,7 +46,8 @@ test('H-001 solo usa contratos que existen', () => {
   }
 });
 
-test('toda etapa de H-001 declara criterio de transicion y que hacer si falla', () => {
+test('toda etapa de H-001 declara criterio de transicion y que hacer si falla', (t) => {
+  if (!HAY_H001) { t.skip('sin .kiro/specs/h-001-ring-execution/h-001.json: este arbol no es el anfitrion DoxIA'); return; }
   for (const s of H1().stages) {
     assert.ok(s.gate?.length > 10, `etapa '${s.stage}': sin criterio de transicion`);
     assert.ok(s.onFail?.length > 3, `etapa '${s.stage}': sin onFail — ninguna avanza "por defecto"`);
@@ -47,7 +55,8 @@ test('toda etapa de H-001 declara criterio de transicion y que hacer si falla', 
   }
 });
 
-test('los cinco fitness tests existen y dicen que prueban', () => {
+test('los cinco fitness tests existen y dicen que prueban', (t) => {
+  if (!HAY_H001) { t.skip('sin .kiro/specs/h-001-ring-execution/h-001.json: este arbol no es el anfitrion DoxIA'); return; }
   assert.equal(H1().fitnessTests.length, 5);
   for (const ft of H1().fitnessTests) {
     assert.ok(ft.assert?.length, `${ft.id}: sin aserciones`);

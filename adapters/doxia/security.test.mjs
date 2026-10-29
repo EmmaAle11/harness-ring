@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   severidadDe, deSemgrep, deNpmAudit, deSecretos, decidirHallazgo,
@@ -11,6 +11,8 @@ import { manifiestosTocados } from '../../lib/security-scan.mjs';
 import { execFileSync } from 'node:child_process';
 
 const GATE = () => readFileSync(join(HARNESS, '..', 'scripts', 'gate.sh'), 'utf8');
+
+const HAY_GATE = existsSync(join(HARNESS, '..', 'scripts', 'gate.sh'));
 
 const _var = (n) => {
   const m = GATE().match(new RegExp(`^\\s*${n}='(.*)'$`, 'm'));
@@ -29,14 +31,16 @@ const detecta = (linea) => {
   return !linea.includes(fixt);
 }
 
-test('el barrido de secretos NO tiene lista de rutas', () => {
+test('el barrido de secretos NO tiene lista de rutas', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // La linea del `git grep` no debe acotar con `-- 'ruta'`: el alcance es el indice entero.
   const linea = GATE().split('\n').find((l) => l.includes('git grep -nIE "$SEC_PAT"'));
   assert.ok(linea, 'no se encontro la invocacion del barrido');
   assert.ok(!/--\s+'/.test(linea), 'el barrido volvio a acotarse a una lista de rutas');
 });
 
-test('atrapa lo que no tiene forma de clave de proveedor', () => {
+test('atrapa lo que no tiene forma de clave de proveedor', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // El hueco que abrio esta tanda: una contrasena de base de datos o un client secret no
   // empiezan por AKIA ni por sk-, y el patron viejo no los veia.
   // LAS FIXTURES VAN PARTIDAS A PROPOSITO. Escritas enteras, el barrido se marcaba a si
@@ -50,12 +54,14 @@ test('atrapa lo que no tiene forma de clave de proveedor', () => {
   assert.equal(detecta('  "ty' + 'pe": "pass' + 'word", "value": "loQueSea"'), true);
 });
 
-test('sigue atrapando las de proveedor', () => {
+test('sigue atrapando las de proveedor', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   assert.equal(detecta('aws_key = AKIA' + 'ABCDEFGHIJKLMNOP'), true);
   assert.equal(detecta('-----BEGIN RSA PRIVATE ' + 'KEY-----'), true);
 });
 
-test('y no grita por las fixtures ni por lo que es codigo normal', () => {
+test('y no grita por las fixtures ni por lo que es codigo normal', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   // `test-secret-*` se filtra por LINEA. Un secreto de verdad en ese mismo fichero
   // seguiria saliendo, que es la diferencia con excluir el fichero entero.
   assert.equal(detecta("const SEC" + "RET = 'test-secret-32-bytes-aaaaaaaaaaaa'"), false);
@@ -64,7 +70,8 @@ test('y no grita por las fixtures ni por lo que es codigo normal', () => {
   assert.equal(detecta(`export function verifyPassword(p) { return hash(p) }`), false);
 });
 
-test('las dos excepciones estan DECLARADAS, no escondidas en el alcance', () => {
+test('las dos excepciones estan DECLARADAS, no escondidas en el alcance', (t) => {
+  if (!HAY_GATE) { t.skip('sin scripts/gate.sh: este arbol no es el anfitrion DoxIA'); return; }
   const excl = _var('SEC_EXCL');
   // `includes` y no `match`: la cadena viene del fuente de bash, con la barra invertida
   // LITERAL (`rules\.yaml`). Un `/rules\.yaml/` de JS pedia `rules.yaml` y no casaba --
