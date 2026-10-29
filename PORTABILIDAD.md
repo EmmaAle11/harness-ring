@@ -1,12 +1,46 @@
-# Portabilidad: lo que falta, medido
+# Portabilidad: medida, cerrada, y cómo volver a comprobarla
 
-**Fecha de la medición:** 2026-09-23
-**Cómo se obtuvo:** copiando el motor a un repositorio vacío y ejecutando su
-propia suite. No es una estimación ni una revisión visual.
+**Última medición:** 2026-10-29
+**Cómo se obtuvo:** copiando el motor a repositorios terceros vacíos y
+ejecutando su propia suite. No es una estimación ni una revisión visual.
 
 ---
 
-## El resultado
+## El resultado actual
+
+| Entorno | Tests | Pasan | Fallan | Saltados |
+|---|---:|---:|---:|---:|
+| Este repositorio (plano) | 947 | **874** | **0** | 73 |
+| Repo tercero, motor anidado en `<host>/harness/` | 947 | **874** | **0** | 73 |
+| Repo tercero, plano, nombre distinto | 947 | **874** | **0** | 73 |
+
+**Las tres formas dan el mismo resultado.** Los 73 saltados son condicionales
+declarados (`t.skip` con motivo): los tests del adaptador DoxIA, que afirman
+cosas ciertas sobre DoxIA y falsas sobre cualquier otro repositorio.
+
+### Cómo se llegó aquí, y lo que costó
+
+| Medición | Fallos |
+|---|---:|
+| 2026-09-23 · primera extracción | 94 |
+| tras corregir la resolución de raíz (`ports/host.mjs`) | 70 |
+| tras separar motor y adaptador | 10 |
+| **2026-10-29 · hoy** | **0** |
+
+Los últimos 10 **no eran código que faltara**: eran tests que afirmaban cosas
+sobre el árbol anfitrión. Estaban estimados en ~800 líneas de código nuevo y se
+cerraron sin escribir ninguna. El detalle, con la atribución fichero por
+fichero, está en
+[`memory/failures/la-portabilidad-estaba-en-los-tests.md`](memory/failures/la-portabilidad-estaba-en-los-tests.md).
+
+El caso más instructivo: cinco tests de `vectores-plan` tenían escrita la guarda
+`t.skip` correcta para «sin histórico» y **ninguno la ejecutaba**, porque
+`readdirSync` sobre un directorio inexistente tumbaba el módulo al importarse.
+Una guarda que no se alcanza no es una guarda.
+
+---
+
+## La medición histórica (2026-09-23), que explica el diseño
 
 | Entorno | Tests | Pasan | Fallan |
 |---|---:|---:|---:|
@@ -14,9 +48,9 @@ propia suite. No es una estimación ni una revisión visual.
 | Este repositorio (estructura plana) | 862 | 766 | **94** |
 | Motor en árbol ajeno, con nivel `harness/` | 875 | 811 | **64** |
 
-**Los fallos no son un error de copia.** Son la medida exacta de cuánto depende
-todavía el motor de su árbol anfitrión. La asimetría *es* el dato: el mismo
-código pasa entero cuando DoxIA está presente.
+**Los fallos no eran un error de copia.** Eran la medida exacta de cuánto
+dependía el motor de su árbol anfitrión. La asimetría *era* el dato: el mismo
+código pasaba entero cuando DoxIA estaba presente.
 
 > 862 = 766 pass + 94 fail + **2 skipped**. Los saltados son condicionales
 > declarados (`t.skip`), no aprobados: ausencia de qué comprobar y comprobación
@@ -125,9 +159,27 @@ cd harness && node --test .
 
 ---
 
-**Este repositorio es el motor _extraído_, no el motor _portable_.**
+## El estado de la frase que cerraba este documento
 
-Esa frase seguirá siendo la honesta hasta que una vuelta cierre en verde sobre un
-repositorio tercero. La portabilidad no se declara: se demuestra. Si alguien la
-declara sin que los 20 fallos no-adaptador sean **0**, el comando de arriba lo
-desmiente.
+Durante un mes esto decía:
+
+> **Este repositorio es el motor _extraído_, no el motor _portable_.**
+> Esa frase seguirá siendo la honesta hasta que una vuelta cierre en verde sobre
+> un repositorio tercero. [...] Si alguien la declara sin que los 20 fallos
+> no-adaptador sean **0**, el comando de arriba lo desmiente.
+
+**Los fallos no-adaptador son 0, medidos en tres formas distintas de árbol.** La
+condición que este documento se puso a sí mismo está cumplida, y el comando de
+arriba es la forma de desmentirlo si deja de serlo.
+
+Lo que **todavía no** está demostrado, y por eso la frase no se sustituye por una
+victoria más amplia:
+
+- **La suite pasa en un repo tercero; una VUELTA del anillo no se ha cerrado
+  ahí.** Son cosas distintas: los tests prueban que el motor no asume DoxIA, no
+  que el ciclo de 16 etapas produzca una vuelta verde sobre otro proyecto.
+- El adaptador de DoxIA sigue siendo el único que existe. Un segundo adaptador es
+  lo que probaría que la frontera está en el sitio correcto.
+
+**El motor ya no depende de su anfitrión. Que sirva para otro proyecto es la
+siguiente medición, no un corolario de esta.**

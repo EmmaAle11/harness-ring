@@ -23,9 +23,9 @@
 // nucleo mientras la configuracion siguiera asumiendo JavaScript.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dirname, join } from 'node:path';
+import { dirname, join, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { anfitrionPorDefecto, crearAnfitrion, OPERACIONES } from './host.mjs';
 
@@ -71,16 +71,38 @@ test('`describe()` dice de donde salio la raiz — una raiz adivinada se audita'
     'el defecto debe DECLARAR que dedujo la raiz, no fingir que se la dieron');
 });
 
-test('COMPATIBILIDAD: en la estructura plana el motor ES la raiz', () => {
-  // En este repo el motor vive en la raiz (lib/, ports/, policy/ sin `harness/`),
-  // asi que `harnessDir()` y `raiz()` coinciden. El caso anidado (<host>/harness/)
-  // lo cubre el test de abajo.
+test('COMPATIBILIDAD: la raiz se deduce de la FORMA del arbol, no del nombre del repo', () => {
+  // Este test afirmaba `harnessDir().endsWith('/harness-ring')`, que hardcodea el
+  // nombre del repositorio -- precisamente lo que un motor portable NO puede
+  // asumir. Medido: al copiar el motor a `/tmp/portab/harness/` el test fallaba
+  // aunque la deduccion era CORRECTA (raiz = /tmp/portab). El test era el bug.
+  //
+  // Lo que importa no es como se llama el directorio, sino la relacion entre las
+  // dos raices, y esa es distinta en cada forma:
+  //
+  //   PLANO    <repo>/ports/host.mjs      harnessDir() === raiz()
+  //   ANIDADO  <host>/harness/ports/...   harnessDir() === <raiz>/harness
   const a = anfitrionPorDefecto();
   const raiz = a.raiz();
-  assert.ok(raiz.includes('/'), `raiz inesperada: ${raiz}`);
-  assert.equal(a.runtimeDir(), `${raiz}/.harness`);
-  assert.ok(a.harnessDir().endsWith('/harness-ring'),
-    `harnessDir plano debe ser la raiz del repo: ${a.harnessDir()}`);
+  const motor = a.harnessDir();
+
+  assert.ok(isAbsolute(raiz), `raiz debe ser absoluta: ${raiz}`);
+  assert.equal(a.runtimeDir(), join(raiz, '.harness'));
+
+  // El motor es la raiz, o es su hijo `harness/`. Nada mas es valido.
+  const plano = motor === raiz;
+  const anidado = motor === join(raiz, 'harness');
+  assert.ok(plano || anidado,
+    `harnessDir() debe ser la raiz o <raiz>/harness, y es ${motor} con raiz ${raiz}`);
+
+  // Y el origen declarado tiene que COINCIDIR con la forma detectada: declarar
+  // "plana" mientras se resuelve como anidada es la clase de mentira que hace
+  // indepurable una raiz adivinada.
+  assert.match(a.describe().origen, plano ? /plana/ : /anidado/);
+
+  // En cualquier forma, el motor debe poder encontrar SUS policies.
+  assert.ok(existsSync(join(motor, 'policy')),
+    `las policies viajan con el motor y deben estar en ${join(motor, 'policy')}`);
 });
 
 test('ANIDADO: dentro de <host>/harness/, la raiz es el host', async () => {

@@ -20,7 +20,14 @@ const DIMS = ['files', 'modulesTouched', 'domainsTouched', 'testsTouched'];
 
 const filas = [];
 const sinPlan = [];
-for (const id of readdirSync(BASE).sort()) {
+// Un historico AUSENTE no es un historico vacio por error: en un repo recien
+// clonado o en un worktree nuevo, `.harness/runs/` no existe todavia (lo excluye
+// `.gitignore`). `readdirSync` sobre un directorio inexistente lanza ENOENT y
+// tumbaba el modulo entero al importarlo -- incluidos los tests que YA tenian su
+// guarda `t.skip` para este caso y nunca llegaban a ejecutarla.
+// MEDIDO sobre un repositorio tercero: 5 fallos en vectores-plan.test.mjs.
+const vueltas = existsSync(BASE) ? readdirSync(BASE).sort() : [];
+for (const id of vueltas) {
   const plan = join(BASE, id, '04-plan.json');
   const trace = join(BASE, id, 'trace.json');
   if (!existsSync(plan)) { sinPlan.push(id); continue; }
