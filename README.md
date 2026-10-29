@@ -153,8 +153,9 @@ raíz se **inyecta**; el comportamiento deducido se conserva por compatibilidad 
 
 Las reglas de proceso que gobiernan este motor — votos 4×9, skills, CoT, flujos
 ReAct/ReWOO, Zero Trust, SAST/SBOM, arquitectura agéntica sin cuello de botella —
-viven en **[`RULES.md`](RULES.md)**, adaptadas de las reglas del operador. Son P0
-de proceso: su incumplimiento bloquea voto, commit, merge y deploy.
+viven en **[`RULES.md`](RULES.md)**, en forma portable: solo etiquetas de rol, sin
+referencias a ningún dominio ni a producción. Son P0 de proceso: su incumplimiento
+bloquea voto, commit, merge y deploy.
 
 ---
 
