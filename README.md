@@ -149,6 +149,13 @@ raíz se **inyecta**; el comportamiento deducido se conserva por compatibilidad 
    porque no había nada* son estados distintos, y quien los confunde es quien se
    pierde.
 
+### Cumplimientos exigidos
+
+Las reglas de proceso que gobiernan este motor — votos 4×9, skills, CoT, flujos
+ReAct/ReWOO, Zero Trust, SAST/SBOM, arquitectura agéntica sin cuello de botella —
+viven en **[`RULES.md`](RULES.md)**, adaptadas de las reglas del operador. Son P0
+de proceso: su incumplimiento bloquea voto, commit, merge y deploy.
+
 ---
 
 ## Uso
@@ -156,7 +163,7 @@ raíz se **inyecta**; el comportamiento deducido se conserva por compatibilidad 
 ```bash
 node bin/doxia.mjs doctor              # qué proveedores responden de verdad
 node bin/doxia.mjs run --ring <spec>   # recorre el anillo
-node --test .                          # 840 tests
+node --test .                          # 877 tests
 ```
 
 ---
