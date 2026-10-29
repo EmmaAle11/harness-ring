@@ -23,6 +23,10 @@
 // nucleo mientras la configuracion siguiera asumiendo JavaScript.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { anfitrionPorDefecto, crearAnfitrion, OPERACIONES } from './host.mjs';
 
 test('el puerto declara sus operaciones, como el de modelos', () => {
@@ -67,15 +71,34 @@ test('`describe()` dice de donde salio la raiz — una raiz adivinada se audita'
     'el defecto debe DECLARAR que dedujo la raiz, no fingir que se la dieron');
 });
 
-test('COMPATIBILIDAD: el defecto reproduce exactamente lo que hay hoy', () => {
-  // La migracion no puede cambiar la conducta en este repo. `anfitrionPorDefecto`
-  // deduce igual que `capabilities.mjs`, para que los 16 ficheros que importan
-  // ROOT sigan viendo lo mismo mientras se migran uno a uno.
+test('COMPATIBILIDAD: en la estructura plana el motor ES la raiz', () => {
+  // En este repo el motor vive en la raiz (lib/, ports/, policy/ sin `harness/`),
+  // asi que `harnessDir()` y `raiz()` coinciden. El caso anidado (<host>/harness/)
+  // lo cubre el test de abajo.
   const a = anfitrionPorDefecto();
   const raiz = a.raiz();
-  assert.ok(raiz.endsWith('DOXIA-main') || raiz.includes('/'), `raiz inesperada: ${raiz}`);
+  assert.ok(raiz.includes('/'), `raiz inesperada: ${raiz}`);
   assert.equal(a.runtimeDir(), `${raiz}/.harness`);
-  assert.ok(a.harnessDir().endsWith('/harness'));
+  assert.ok(a.harnessDir().endsWith('/harness-ring'),
+    `harnessDir plano debe ser la raiz del repo: ${a.harnessDir()}`);
+});
+
+test('ANIDADO: dentro de <host>/harness/, la raiz es el host', async () => {
+  // Simula el motor copiado bajo un directorio `harness/` de un arbol ajeno.
+  // Se comprueba que existe <candidato>/harness para deducir la raiz.
+  const aqui = dirname(fileURLToPath(import.meta.url)); // <repo>/ports
+  const repo = join(aqui, '..');                         // <repo>
+  const host = mkdtempSync(join(tmpdir(), 'anfitrion-')); // <host>/
+  const motor = join(host, 'harness');                    // <host>/harness
+  // Copiamos SOLO ports/host.mjs: crearAnfitrion no necesita mas para deducir.
+  mkdirSync(join(motor, 'ports'), { recursive: true });
+  copyFileSync(join(repo, 'ports', 'host.mjs'), join(motor, 'ports', 'host.mjs'));
+  // Importamos la COPIA para que import.meta.url resuelva dentro de <host>/harness.
+  const mod = await import(pathToFileURL(join(motor, 'ports', 'host.mjs')).href);
+  const a = mod.anfitrionPorDefecto();
+  assert.equal(a.raiz(), host, 'raiz anidada debe ser el host, no el subdirectorio harness');
+  assert.equal(a.harnessDir(), motor);
+  rmSync(host, { recursive: true, force: true });
 });
 
 test('una raiz vacia o no-string se RECHAZA: fallar cerrado', () => {
